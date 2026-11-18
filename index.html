@@ -124,7 +124,7 @@ main { flex: 1; padding: 0 18px 28px; display: flex; flex-direction: column; gap
 .shop li { grid-template-columns: 26px 40px 1fr auto; }
 .shop .tile { width: 40px; height: 40px; }
 .shop .tile svg { width: 30px; height: 30px; }
-.tabs { position: sticky; bottom: 0; z-index: 5; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--ivory); border-top: 1px solid var(--line); }
+.tabs { position: sticky; bottom: 0; z-index: 5; display: grid; grid-template-columns: repeat(5, 1fr); background: var(--ivory); border-top: 1px solid var(--line); }
 .tabs button { border: 0; background: none; padding: 10px 0 14px; font-size: 13px; font-weight: 600; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .tabs svg { width: 22px; height: 22px; }
 .tabs button[aria-current="page"] { color: var(--spice-deep); font-weight: 800; }
@@ -142,6 +142,20 @@ main { flex: 1; padding: 0 18px 28px; display: flex; flex-direction: column; gap
 .sync.warn { color: var(--warn); }
 .code { font: 800 30px/1.1 var(--sans); letter-spacing: .18em; margin: 6px 0; display: block; }
 ul.plain { list-style: none; padding: 0; margin: 6px 0 0; display: flex; flex-direction: column; gap: 4px; }
+.gbar { display: flex; flex-direction: column; gap: 5px; }
+.gtop { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; color: var(--muted); font-weight: 600; }
+.gtop b { color: var(--ink); font-size: 18px; }
+.track { height: 10px; border-radius: 99px; background: var(--wash); overflow: hidden; }
+.track span { display: block; height: 100%; background: var(--green); border-radius: 99px; }
+.track span.over { background: var(--over); }
+.gnote { font-size: 12.5px; }
+.daynav { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.daynav h1 { font-size: 30px; flex: 1; text-align: center; }
+.daynav .ghost { min-width: 44px; min-height: 44px; font-size: 20px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.linkish { border: 0; background: none; padding: 4px 0; color: var(--spice-deep); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; font-size: 14px; }
+ul.log li { grid-template-columns: 1fr auto auto; }
+ul.log .q small { display: block; font-weight: 500; color: var(--muted); font-size: 12px; text-align: right; }
 .bar { display: flex; align-items: center; gap: 12px; }
 .bar .back { margin-bottom: 0; }
 html[lang="en"] .card-title, html[lang="en"] .intro h1 { letter-spacing: -.01em; }
@@ -492,7 +506,12 @@ const Sync = (() => {
     if (!enabled) return;
     sb = window.supabase.createClient(CFG.url, CFG.key, { auth: { persistSession: true, autoRefreshToken: true } });
     const { data } = await sb.auth.getSession();
-    if (data.session) await afterLogin(data.session.user); else { st.stage = 'email'; rerender(); }
+    if (data.session) {
+      // the account may have been deleted on the server: check before trusting the saved login
+      const u = await sb.auth.getUser();
+      if (u.error && u.error.status !== undefined && u.error.status !== 0 && navigator.onLine) { await sb.auth.signOut({ scope: 'local' }); clearLocal(); st.stage = 'email'; rerender(); }
+      else await afterLogin(data.session.user);
+    } else { st.stage = 'email'; rerender(); }
     addEventListener('online', () => flush().then(pull));
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && st.stage === 'ready') flush().then(pull); });
   }
@@ -504,6 +523,13 @@ const Sync = (() => {
     if (res.error) return fail(res.error);
     if (!res.data.session) return fail({ message: 'confirm email is on' });
     await afterLogin(res.data.user);
+  }
+  async function changePassword(pw) {
+    st.busy = true; st.error = ''; st.pwMsg = ''; rerender();
+    const { error } = await sb.auth.updateUser({ password: pw });
+    st.busy = false;
+    if (error) return fail(error);
+    st.pwMsg = 'ok'; rerender();
   }
   function setMode(m) { st.mode = m; st.error = ''; rerender(); }
   function backToEmail() { st.stage = 'email'; st.error = ''; rerender(); }
@@ -530,7 +556,7 @@ const Sync = (() => {
     if (error) return fail(error);
     clearLocal(); await afterLogin(st.user);
   }
-  function clearLocal() { S.plan = []; S.checked = {}; S.saved = {}; setOutbox([]); persist(); }
+  function clearLocal() { S.plan = []; S.checked = {}; S.saved = {}; S.intake = []; S.goals = {}; setOutbox([]); persist(); save('intake', []); save('goals', {}); }
 
   async function signOut() {
     if (channel) { sb.removeChannel(channel); channel = null; }
@@ -543,19 +569,24 @@ const Sync = (() => {
   async function pull() {
     if (!enabled || st.stage !== 'ready' || outbox().length) return;
     const h = st.household.id, wk = weekStart();
-    const [plan, checks, favs, mem] = await Promise.all([
+    const since = new Date(); since.setDate(since.getDate() - 35);
+    const [plan, checks, favs, mem, intake] = await Promise.all([
       sb.from('plan_entries').select('id, day, recipe_id, ver, servings').eq('household_id', h).eq('week_start', wk).order('updated_at'),
       sb.from('shopping_checks').select('item_key').eq('household_id', h).eq('week_start', wk),
       sb.from('favorites').select('user_id, recipe_id'),
-      sb.from('members').select('user_id, display_name').eq('household_id', h),
+      sb.from('members').select('user_id, display_name, kcal_goal, protein_goal').eq('household_id', h),
+      sb.from('intake_logs').select('id, user_id, eaten_on, meal, recipe_id, ver, portion, label, kcal, protein_g, carbs_g, fat_g').gte('eaten_on', ymd(since)).order('created_at'),
     ]);
-    const err = plan.error || checks.error || favs.error || mem.error;
+    const err = plan.error || checks.error || favs.error || mem.error || intake.error;
     if (err) { st.status = 'offline'; rerender(); return; }
     S.plan = plan.data.filter(r => RECIPES.some(x => x.id === r.recipe_id)).map(r => ({ uid: r.id, id: r.recipe_id, ver: r.ver, servings: r.servings, day: r.day }));
     S.checked = Object.fromEntries(checks.data.map(r => [r.item_key, true]));
     st.members = mem.data; st.status = 'idle';
     const me = st.user.id, nameOf = id => (mem.data.find(m => m.user_id === id) || {}).display_name || '';
     S.saved = Object.fromEntries(favs.data.filter(r => r.user_id === me).map(r => [r.recipe_id, true]));
+    S.goals = Object.fromEntries(mem.data.map(m => [m.user_id, { kcal: m.kcal_goal, protein: m.protein_goal }]));
+    S.intake = intake.data.map(r => ({ uid: r.id, user: r.user_id, date: r.eaten_on, meal: r.meal, recipe_id: r.recipe_id, ver: r.ver, portion: +r.portion, label: r.label || '', kcal: r.kcal || 0, P: r.protein_g || 0, C: r.carbs_g || 0, F: r.fat_g || 0 }));
+    save('intake', S.intake); save('goals', S.goals);
     S.partnerSaved = {};
     favs.data.filter(r => r.user_id !== me).forEach(r => { (S.partnerSaved[r.recipe_id] = S.partnerSaved[r.recipe_id] || []).push(nameOf(r.user_id)); });
     persist(); rerender();
@@ -567,6 +598,7 @@ const Sync = (() => {
     channel = sb.channel('hh-' + st.household.id)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'plan_entries', filter: f }, schedulePull)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shopping_checks', filter: f }, schedulePull)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intake_logs' }, schedulePull)
       .subscribe();
   }
 
@@ -582,6 +614,9 @@ const Sync = (() => {
     if (type === 'plan_delete') return sb.from('plan_entries').delete().eq('id', p);
     if (type === 'check_add') return sb.from('shopping_checks').upsert({ household_id: h, week_start: week, item_key: p });
     if (type === 'check_del') return sb.from('shopping_checks').delete().match({ household_id: h, week_start: week, item_key: p });
+    if (type === 'intake_upsert') return sb.from('intake_logs').upsert({ id: p.uid, user_id: me, eaten_on: p.date, meal: p.meal, recipe_id: p.recipe_id, ver: p.ver, portion: p.portion, label: p.label || null, kcal: p.kcal, protein_g: p.P, carbs_g: p.C, fat_g: p.F, updated_at: new Date().toISOString() });
+    if (type === 'intake_delete') return sb.from('intake_logs').delete().eq('id', p);
+    if (type === 'goals_save') return sb.from('members').update({ kcal_goal: p.kcal, protein_goal: p.protein }).eq('user_id', me);
     if (type === 'fav_add') return sb.from('favorites').upsert({ user_id: me, recipe_id: p });
     if (type === 'fav_del') return sb.from('favorites').delete().match({ user_id: me, recipe_id: p });
     return { error: null };
@@ -601,7 +636,7 @@ const Sync = (() => {
     flushing = false; rerender();
   }
 
-  return { enabled, st, init, signIn, setMode, backToEmail, createHousehold, joinHousehold, signOut, op, newId, pending: () => outbox().length };
+  return { enabled, st, init, signIn, setMode, changePassword, backToEmail, createHousehold, joinHousehold, signOut, op, newId, pending: () => outbox().length };
 })();
 
 const STATUS_I = {
@@ -633,14 +668,14 @@ const T = {
     pantry: '常备品：买之前先看看家里有没有。', shopEmpty: '这个范围里还没安排菜。去「本周」加几道。',
     shopFoot: '同一种食材、同一种单位会自动加在一起；勺和杯会换算合并，但不会把体积换成重量。米饭按生米算。', sep: '、',
     tCook: '食谱', tPlan: '本周', tShop: '采购', tMe: '我', nav: '主导航', langBtn: 'EN', langAria: 'Switch to English',
-    authTitle: '登录 Home Food', authSub: '用邮箱和密码登录。', authSubNew: '第一次用：用邮箱设一个密码（至少 6 位）。不会发邮件。', modeIn: '登录', modeNew: '注册', pw: '密码', pwNew: '设一个密码（至少 6 位）', forgot: '忘了密码就告诉 Claude，在 Supabase 后台帮你重设。', email: '邮箱', sendCode: '发送验证码',
+    authTitle: '登录 Home Food', authSub: '用邮箱和密码登录。', authSubNew: '第一次用：用邮箱设一个密码（至少 6 位）。不会发邮件。', modeIn: '登录', modeNew: '注册', pw: '密码', pwNew: '设一个密码（至少 6 位）', forgot: '忘了密码就告诉 Claude。登录后可以在「我」里改密码。', email: '邮箱', sendCode: '发送验证码',
     codeSub: e => `验证码已发到 ${e}。没收到的话看看垃圾邮件。`, code: '验证码', verify: '登录', changeEmail: '换个邮箱',
     hhTitle: '建一个家，或者加入', hhSub: '你们俩共用一个家：本周计划和采购单共享，其他的各自私人。', yourName: '你的名字（对方看得到）',
     hhName: '家的名字', create: '新建一个家', joinL: '对方已经建好了？输入邀请码', join: '加入', busy: '请稍候…', loading: '加载中…',
     meEyebrow: 'Account · 账号', meH: '我的', inviteCode: '邀请码', inviteHint: '把这个码发给对方，对方登录后输入就能加入。', members: '成员', you: '（你）',
     signOut: '退出登录', language: '语言', synced: '已同步', syncing: '同步中…', pending: n => `${n} 项改动还没上传，联网后会自动上传。`,
     privateNote: '本周计划、采购单、收藏和饮食记录两个人都看得到，各自只改自己的；健康数据（Apple Health、Oura）只有自己看得到。', localOnly: '这是预览版：数据只存在这台设备上，不会同步。',
-    errCode: '邀请码不对，再核对一下。', errFull: '这个家已经有两个人了。', errOtp: '邮箱或密码不对。', errExists: '这个邮箱已经注册过了，切到「登录」。', errWeak: '密码太短，至少 6 位。', errConfirm: 'Supabase 还开着邮箱确认，需要先关掉（见 Claude 的说明）。', errGeneric: m => `出错了：${m}`, partnerSaved: n => `${n || '对方'} 也收藏了`,
+    errCode: '邀请码不对，再核对一下。', errFull: '这个家已经有两个人了。', errOtp: '邮箱或密码不对。', errExists: '这个邮箱已经注册过了，切到「登录」。', errWeak: '密码太短，至少 6 位。', errConfirm: 'Supabase 还开着邮箱确认，需要先关掉（见 Claude 的说明）。', errGeneric: m => `出错了：${m}`, partnerSaved: n => `${n || '对方'} 也收藏了`, newPw: '新密码（至少 6 位）', changePw: '修改密码', pwChanged: '密码已改好，下次用新密码登录。',
   },
   en: {
     title: 'Home Food preview', brandSub: 'OUR KITCHEN · 我们的家常菜', search: 'Search recipes', ph: 'Dish or ingredient, e.g. shrimp, lemongrass', byType: 'By type', byCuisine: 'By cuisine',
@@ -667,7 +702,7 @@ const T = {
     meEyebrow: 'Account', meH: 'Me', inviteCode: 'Invite code', inviteHint: 'Send this code to your partner; they enter it after signing in.', members: 'Members', you: ' (you)',
     signOut: 'Sign out', language: 'Language', synced: 'Synced', syncing: 'Syncing…', pending: n => `${n} change${n === 1 ? '' : 's'} not uploaded yet; ${n === 1 ? 'it' : 'they'}’ll upload when you’re online.`,
     privateNote: 'You both see the weekly plan, shopping list, favorites and food log, and each of you edits only your own; health data (Apple Health, Oura) is visible only to you.', localOnly: 'This is the preview: data stays on this device and isn’t synced.',
-    errCode: 'That invite code wasn’t found. Check it and try again.', errFull: 'That household already has two people.', errOtp: 'Wrong email or password.', errExists: 'That email already has an account. Switch to Sign in.', errWeak: 'Password is too short: at least 6 characters.', errConfirm: 'Email confirmation is still on in Supabase and needs to be turned off.', errGeneric: m => `Something went wrong: ${m}`, partnerSaved: n => `${n || 'Your partner'} saved this too`,
+    errCode: 'That invite code wasn’t found. Check it and try again.', errFull: 'That household already has two people.', errOtp: 'Wrong email or password.', errExists: 'That email already has an account. Switch to Sign in.', errWeak: 'Password is too short: at least 6 characters.', errConfirm: 'Email confirmation is still on in Supabase and needs to be turned off.', errGeneric: m => `Something went wrong: ${m}`, partnerSaved: n => `${n || 'Your partner'} saved this too`, newPw: 'New password (at least 6 characters)', changePw: 'Change password', pwChanged: 'Password changed. Use the new one next time.',
   },
 };
 const t = (k, ...a) => { const v = T[LANG][k]; return typeof v === 'function' ? v(...a) : v; };
@@ -802,6 +837,8 @@ function viewRecipe() {
       <div class="days" role="group" aria-label="${t('pickDay')}">${DAYS_I[LANG].map((d, i) => `<button data-act="day" data-d="${i}" aria-pressed="${S.addDay === i}">${d}</button>`).join('')}</div>
       <button class="action" data-act="add">${t('addBtn', dayName(S.addDay), t(verKey === 'light' ? 'light' : 'orig'), S.servings)}</button>
       ${S.addedDay != null ? `<span class="toast" role="status">${esc(t('added', dayName(S.addedDay)))}</span>` : ''}
+      <button class="ghost" data-act="rlog" style="align-self:flex-start">${t('logRecipe')} · ${t('portionN', 1)}</button>
+      ${S.logged === r.id ? `<span class="toast" role="status">${t('logged')}</span>` : ''}
     </section>
   </main>`;
 }
@@ -852,7 +889,8 @@ function viewAuth() {
       <section class="panel"><label class="field"><span>${t('hhName')}</span><input id="a-hh" type="text" value="Home"></label>
         <button class="action" data-act="a-create" ${dis}>${z.busy ? t('busy') : t('create')}</button></section>
       <section class="panel"><label class="field"><span>${t('joinL')}</span><input id="a-join" type="text" autocapitalize="characters" maxlength="6"></label>
-        <button class="action" data-act="a-join" ${dis}>${z.busy ? t('busy') : t('join')}</button></section>`;
+        <button class="action" data-act="a-join" ${dis}>${z.busy ? t('busy') : t('join')}</button></section>
+      <button class="ghost" data-act="a-out" style="align-self:flex-start">${t('signOut')}</button>`;
   return `<header class="masthead"><span class="seal">HF</span><span class="brand">Home Food<small>${t('brandSub')}</small></span>${langBtn()}</header>
     <main class="auth">${body}${errText(z.error)}</main>`;
 }
@@ -862,9 +900,12 @@ function viewMe() {
     <section class="panel"><span class="label">${t('members')} · ${esc(z.household.name)}</span>
       <ul class="plain">${z.members.map(m => `<li>${esc(m.display_name || '—')}${m.user_id === z.user.id ? t('you') : ''}</li>`).join('')}</ul></section>
     ${syncLine()}<p class="muted">${t('privateNote')}</p>
+    <section class="panel"><label class="field"><span>${t('newPw')}</span><input id="a-newpw" type="password" autocomplete="new-password" minlength="6"></label>
+      <button class="ghost" data-act="a-pw" style="align-self:flex-start" ${z.busy ? 'disabled' : ''}>${t('changePw')}</button>
+      ${z.pwMsg ? `<span class="toast" role="status">${t('pwChanged')}</span>` : ''}${errText(z.error)}</section>
     <p class="muted">${esc(z.user.email || '')}</p><button class="ghost" data-act="a-out" style="align-self:flex-start">${t('signOut')}</button>`
     : `<p class="muted">${t('localOnly')}</p>`;
-  return `<main><div class="page-head"><div class="bar"><span class="eyebrow">${t('meEyebrow')}</span>${langBtn()}</div><h1>${t('meH')}</h1></div>${acct}</main>`;
+  return `<main><div class="page-head"><div class="bar"><span class="eyebrow">${t('meEyebrow')}</span>${langBtn()}</div><h1>${t('meH')}</h1></div>${goalsPanel()}${acct}</main>`;
 }
 function planInRange() { return S.plan.filter(e => S.range === 'week' || (S.range === 'weekday' ? e.day < 5 : e.day >= 5)); }
 function viewShop() {
@@ -886,14 +927,14 @@ function viewShop() {
 }
 
 function tabs() {
-  const tb = [['cook', t('tCook'), ICON.book, ''], ['plan', t('tPlan'), ICON.cal, S.plan.length], ['shop', t('tShop'), ICON.cart, ''], ['me', t('tMe'), ICON.me, '']];
+  const tb = [['cook', t('tCook'), ICON.book, ''], ['plan', t('tPlan'), ICON.cal, S.plan.length], ['shop', t('tShop'), ICON.cart, ''], ['today', t('tToday'), ICON.today, ''], ['me', t('tMe'), ICON.me, '']];
   return `<nav class="tabs" aria-label="${t('nav')}">${tb.map(([k, name, ic, b]) => `<button data-act="tab" data-t="${k}" ${S.tab === k ? 'aria-current="page"' : ''}>${ic}${b ? `<span class="badge">${b}</span>` : ''}${name}</button>`).join('')}</nav>`;
 }
 function langBtn() { return `<button class="lang" data-act="lang" aria-label="${t('langAria')}" lang="${LANG === 'en' ? 'zh-Hans' : 'en'}">${t('langBtn')}</button>`; }
 function render() {
   document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-Hans'; document.title = t('title');
   if (Sync.enabled && Sync.st.stage !== 'ready') { document.getElementById('app').innerHTML = viewAuth(); return; }
-  const body = S.tab === 'cook' ? (S.recipe ? viewRecipe() : viewCook()) : S.tab === 'plan' ? viewPlan() : S.tab === 'me' ? viewMe() : viewShop();
+  const body = S.tab === 'cook' ? (S.recipe ? viewRecipe() : viewCook()) : S.tab === 'plan' ? viewPlan() : S.tab === 'me' ? viewMe() : S.tab === 'today' ? viewToday() : viewShop();
   document.getElementById('app').innerHTML = body + tabs();
 }
 
@@ -906,11 +947,13 @@ document.addEventListener('click', ev => {
   if (a === 'a-create') { Sync.createHousehold(val('a-hh').trim(), val('a-name').trim()); return; }
   if (a === 'a-join') { const c = val('a-join').trim(); if (c) Sync.joinHousehold(c, val('a-name').trim()); return; }
   if (a === 'a-out') { Sync.signOut(); return; }
+  if (a === 'a-pw') { const pw = val('a-newpw'); if (pw) Sync.changePassword(pw); return; }
+  if (fitnessClick(a, b)) return;
   if (a === 'jump') { ev.preventDefault(); document.getElementById('plan-add').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); return; }
   const toTop = a === 'open' || a === 'back' || a === 'tab';
-  if (a === 'open') { const r = byId(b.dataset.id); S.tab = 'cook'; S.recipe = r.id; S.ver = pickVer(r); S.servings = 2; S.addedDay = null; }
+  if (a === 'open') { const r = byId(b.dataset.id); S.tab = 'cook'; S.recipe = r.id; S.ver = pickVer(r); S.servings = 2; S.addedDay = null; S.logged = null; }
   if (a === 'back') S.recipe = null;
-  if (a === 'tab') { S.tab = b.dataset.t; if (S.tab === 'cook') S.recipe = null; }
+  if (a === 'tab') { S.logMsg = ''; S.tab = b.dataset.t; if (S.tab === 'cook') S.recipe = null; }
   if (a === 'cuisine') S.cuisine = b.dataset.c;
   if (a === 'rtype') S.rtype = b.dataset.t;
   if (a === 'nut') S.nut[b.dataset.k] = !S.nut[b.dataset.k];
@@ -938,6 +981,166 @@ document.addEventListener('input', ev => {
   S.q = ev.target.value; const pos = ev.target.selectionStart; render();
   const el = document.getElementById('q'); el.focus(); el.setSelectionRange(pos, pos);
 });
+
+// ---- Today: food log and daily goals (Phase 5a) ----
+// Entries: { uid, user, date 'YYYY-MM-DD', meal, recipe_id, ver, portion, label, kcal, P, C, F }
+// user is the Supabase user id in the synced app, 'me' in the preview.
+Object.assign(T.zh, {
+  tToday: '今天', todayEyebrow: 'Today · 今天', goalSet: '在「我」里设每天的目标', eaten: '已吃', left: n => `还差 ${n}`, over: n => `超了 ${n}`,
+  protein: '蛋白质', carbs: '碳水', fat: '脂肪', mealB: '早餐', mealL: '午餐', mealD: '晚餐', mealS: '加餐', nothing: '还没记录',
+  logTitle: '记一餐', fromPlan: '今天菜单上的', noPlanToday: '今天菜单上没有菜。可以在食谱里打开一道菜记录，或者手填。',
+  other: '手填其他食物', foodName: '吃了什么', kcalL: '热量 kcal', proteinL: '蛋白质 g（可不填）', portion: '份量', meal: '哪一餐',
+  log: '记录', logged: '已记到今天。', remove: '删除', goalsH: '每天的目标', kcalGoal: '热量 kcal', proteinGoal: '蛋白质 g', saveGoals: '保存目标',
+  goalsSaved: '目标已保存。', goalsHint: '只用来显示进度。对方也看得到你的记录和目标。', logRecipe: '记到今天的饮食', portionN: p => `${p} 份`,
+  dayLabel: d => `${d.getMonth() + 1}月${d.getDate()}日 ${DAYS_I.zh[(d.getDay() + 6) % 7]}`, prevDay: '前一天', nextDay: '后一天', today: '回到今天',
+  whose: '看谁的', readOnly: n => `${n} 的记录，只能看。`, partnerNoGoal: '还没设目标',
+});
+Object.assign(T.en, {
+  tToday: 'Today', todayEyebrow: 'Today', goalSet: 'Set daily goals in Me', eaten: 'Eaten', left: n => `${n} to go`, over: n => `${n} over`,
+  protein: 'Protein', carbs: 'Carbs', fat: 'Fat', mealB: 'Breakfast', mealL: 'Lunch', mealD: 'Dinner', mealS: 'Snack', nothing: 'Nothing logged yet',
+  logTitle: 'Log a meal', fromPlan: 'On today’s plan', noPlanToday: 'Nothing planned today. Open a recipe to log it, or enter something by hand.',
+  other: 'Something else', foodName: 'What you ate', kcalL: 'Calories (kcal)', proteinL: 'Protein g (optional)', portion: 'Portion', meal: 'Meal',
+  log: 'Log it', logged: 'Logged for today.', remove: 'Remove', goalsH: 'Daily goals', kcalGoal: 'Calories (kcal)', proteinGoal: 'Protein (g)', saveGoals: 'Save goals',
+  goalsSaved: 'Goals saved.', goalsHint: 'Only used to show progress. Your partner can see your log and goals too.', logRecipe: 'Log to today’s food', portionN: p => `${p} portion${p === 1 ? '' : 's'}`,
+  dayLabel: d => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }), prevDay: 'Previous day', nextDay: 'Next day', today: 'Back to today',
+  whose: 'Whose log', readOnly: n => `${n}’s log, view only.`, partnerNoGoal: 'No goals yet',
+});
+ICON.today = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>';
+
+const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
+const mealName = m => t({ breakfast: 'mealB', lunch: 'mealL', dinner: 'mealD', snack: 'mealS' }[m]);
+const PORTIONS = [0.5, 1, 1.5, 2];
+S.intake = load('intake', []);
+S.goals = load('goals', {});          // { [user]: { kcal, protein } }
+Object.assign(S, { dayOff: 0, whose: null, logForm: null, logMsg: '' });
+const persistFit = () => { save('intake', S.intake); save('goals', S.goals); };
+
+const me = () => (Sync.enabled && Sync.st.user ? Sync.st.user.id : 'me');
+const pad2 = n => String(n).padStart(2, '0');
+const ymdOf = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+function dateAt(off) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + off); return d; }
+function mondayOf(d) { const x = new Date(d); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return ymdOf(x); }
+function defaultMeal() { const h = new Date().getHours(); return h < 10 ? 'breakfast' : h < 15 ? 'lunch' : h < 21 ? 'dinner' : 'snack'; }
+// "610–770" -> 690: a range is logged at its midpoint
+const mid = s => { const a = String(s).replace(/,/g, '').match(/[\d.]+/g).map(Number); return a.reduce((x, y) => x + y, 0) / a.length; };
+
+function recipeEntry(r, ver, portion, meal, date) {
+  const n = (r.versions[ver] || r.versions.orig).n;
+  const k = x => Math.round(mid(x) * portion);
+  return { uid: Sync.newId(), user: me(), date, meal, recipe_id: r.id, ver: r.versions[ver] ? ver : 'orig', portion, label: '', kcal: k(n.kcal), P: k(n.P), C: k(n.C), F: k(n.F) };
+}
+function addEntry(e) { S.intake.push(e); persistFit(); Sync.op('intake_upsert', e); }
+function entryTitle(e) {
+  if (!e.recipe_id) return e.label;
+  const r = byId(e.recipe_id); if (!r) return e.label || e.recipe_id;
+  return title(r) + (r.versions.light ? ` · ${t(e.ver === 'light' ? 'light' : 'orig')}` : '');
+}
+
+function bar(label, val, goal, unit) {
+  const pct = goal ? Math.min(100, Math.round(val / goal * 100)) : 0, overBy = goal && val > goal;
+  const note = goal ? (overBy ? t('over', `${val - goal} ${unit}`) : t('left', `${goal - val} ${unit}`)) : '';
+  return `<div class="gbar"><div class="gtop"><span>${label}</span><b>${val}${goal ? ` / ${goal}` : ''} ${unit}</b></div>
+    ${goal ? `<div class="track"><span class="${overBy ? 'over' : ''}" style="width:${pct}%"></span></div><span class="muted gnote">${note}</span>` : ''}</div>`;
+}
+
+function viewToday() {
+  const d = dateAt(S.dayOff), date = ymdOf(d), who = S.whose || me(), mine = who === me();
+  const people = Sync.enabled && Sync.st.members.length > 1 ? Sync.st.members : null;
+  const rows = S.intake.filter(e => e.user === who && e.date === date);
+  const sum = k => rows.reduce((x, e) => x + (e[k] || 0), 0);
+  const g = S.goals[who] || {};
+  const name = people ? ((people.find(m => m.user_id === who) || {}).display_name || '') : '';
+  const summary = `<section class="panel">${bar(t('eaten'), sum('kcal'), g.kcal, 'kcal')}${bar(t('protein'), sum('P'), g.protein, 'g')}
+    <p class="muted">${t('carbs')} ${sum('C')} g · ${t('fat')} ${sum('F')} g</p>
+    ${!g.kcal && !g.protein ? `<p class="muted">${mine ? `<button class="linkish" data-act="tab" data-t="me">${t('goalSet')}</button>` : t('partnerNoGoal')}</p>` : ''}</section>`;
+  const meals = MEALS.map(m => {
+    const list = rows.filter(e => e.meal === m);
+    if (!list.length) return '';
+    return `<section><h3 class="group">${mealName(m)}</h3><ul class="ing log">${list.map(e => `<li><span class="nm">${esc(entryTitle(e))}${e.portion && e.portion !== 1 ? ` <span class="muted">× ${e.portion}</span>` : ''}</span>
+      <span class="q">${e.kcal} kcal${e.P ? `<small>${e.P} g ${t('protein')}</small>` : ''}</span>${mine ? `<button class="ghost" data-act="ldel" data-u="${e.uid}" aria-label="${t('remove')} ${esc(entryTitle(e))}">${t('remove')}</button>` : ''}</li>`).join('')}</ul></section>`;
+  }).join('') || `<p class="empty">${t('nothing')}</p>`;
+  const whoSeg = people ? `<div class="seg" role="group" aria-label="${t('whose')}" style="align-self:flex-start">${people.map(m => `<button data-act="whose" data-u="${m.user_id}" aria-pressed="${m.user_id === who}">${esc(m.display_name || '—')}</button>`).join('')}</div>` : '';
+  return `<main><div class="page-head"><div class="bar"><span class="eyebrow">${t('todayEyebrow')}</span>${langBtn()}</div>
+      <div class="daynav"><button class="ghost" data-act="dprev" aria-label="${t('prevDay')}">‹</button><h1>${esc(t('dayLabel', d))}</h1><button class="ghost" data-act="dnext" aria-label="${t('nextDay')}">›</button></div>
+      ${S.dayOff ? `<button class="linkish" data-act="dtoday">${t('today')}</button>` : ''}${syncLine()}</div>
+    ${whoSeg}${!mine ? `<p class="muted">${esc(t('readOnly', name))}</p>` : ''}
+    ${summary}${meals}${mine ? logPanel(d, date) : ''}</main>`;
+}
+
+function logPanel(d, date) {
+  const f = S.logForm;
+  const sameWeek = mondayOf(d) === mondayOf(new Date());
+  const planned = sameWeek ? S.plan.filter(e => e.day === (d.getDay() + 6) % 7) : [];
+  const chips = planned.length ? `<div class="chips">${planned.map(e => { const r = byId(e.id); return `<button class="chip" data-act="lpick" data-id="${r.id}" data-v="${e.ver}" aria-pressed="${!!(f && f.recipe_id === r.id)}">${esc(title(r))}</button>`; }).join('')}
+      <button class="chip" data-act="lother" aria-pressed="${!!(f && f.other)}">${t('other')}</button></div>`
+    : `<p class="muted">${t('noPlanToday')}</p><div class="chips"><button class="chip" data-act="lother" aria-pressed="${!!(f && f.other)}">${t('other')}</button></div>`;
+  let form = '';
+  if (f) {
+    const segMeal = `<div class="row"><span class="label">${t('meal')}</span><div class="seg">${MEALS.map(m => `<button data-act="lmeal" data-m="${m}" aria-pressed="${f.meal === m}">${mealName(m)}</button>`).join('')}</div></div>`;
+    if (f.other) form = `${segMeal}<label class="field"><span>${t('foodName')}</span><input id="l-name" type="text" value="${esc(f.name || '')}"></label>
+      <div class="two"><label class="field"><span>${t('kcalL')}</span><input id="l-kcal" type="number" inputmode="numeric" min="0" value="${esc(f.kcal || '')}"></label>
+      <label class="field"><span>${t('proteinL')}</span><input id="l-p" type="number" inputmode="numeric" min="0" value="${esc(f.p || '')}"></label></div>
+      <button class="action" data-act="lsave">${t('log')}</button>`;
+    else {
+      const r = byId(f.recipe_id), e = recipeEntry(r, f.ver, f.portion, f.meal, date);
+      form = `${segMeal}${r.versions.light ? `<div class="row"><span class="label">${t('version')}</span><div class="seg"><button data-act="lver" data-v="orig" aria-pressed="${f.ver === 'orig'}">${t('orig')}</button><button data-act="lver" data-v="light" aria-pressed="${f.ver === 'light'}">${t('light')}</button></div></div>` : ''}
+        <div class="row"><span class="label">${t('portion')}</span><div class="seg">${PORTIONS.map(p => `<button data-act="lport" data-p="${p}" aria-pressed="${f.portion === p}">${p}</button>`).join('')}</div></div>
+        <button class="action" data-act="lsave">${t('log')} · ${e.kcal} kcal · ${e.P} g ${t('protein')}</button>`;
+    }
+  }
+  return `<div class="section-title"><h2>${t('logTitle')}</h2></div><section class="panel"><span class="label">${t('fromPlan')}</span>${chips}${form}
+    ${S.logMsg ? `<span class="toast" role="status">${esc(S.logMsg)}</span>` : ''}</section>`;
+}
+
+function goalsPanel() {
+  const g = S.goals[me()] || {};
+  return `<section class="panel"><span class="label">${t('goalsH')}</span>
+    <div class="two"><label class="field"><span>${t('kcalGoal')}</span><input id="g-kcal" type="number" inputmode="numeric" min="800" max="6000" value="${g.kcal || ''}"></label>
+    <label class="field"><span>${t('proteinGoal')}</span><input id="g-p" type="number" inputmode="numeric" min="20" max="400" value="${g.protein || ''}"></label></div>
+    <button class="action" data-act="gsave">${t('saveGoals')}</button>${S.logMsg === t('goalsSaved') ? `<span class="toast" role="status">${t('goalsSaved')}</span>` : ''}
+    <p class="muted">${t('goalsHint')}</p></section>`;
+}
+
+// clicks for this tab; returns true when handled
+function fitnessClick(a, b) {
+  const val = id => (document.getElementById(id) || {}).value || '';
+  const date = ymdOf(dateAt(S.dayOff));
+  const reset = () => { S.logForm = null; };
+  // keep what was typed in the free-entry form when another button re-renders it
+  if (S.logForm && S.logForm.other) Object.assign(S.logForm, { name: val('l-name'), kcal: val('l-kcal'), p: val('l-p') });
+  switch (a) {
+    case 'dprev': S.dayOff--; reset(); S.logMsg = ''; break;
+    case 'dnext': S.dayOff++; reset(); S.logMsg = ''; break;
+    case 'dtoday': S.dayOff = 0; reset(); S.logMsg = ''; break;
+    case 'whose': S.whose = b.dataset.u; reset(); break;
+    case 'lpick': S.logForm = { recipe_id: b.dataset.id, ver: b.dataset.v, portion: 1, meal: defaultMeal() }; S.logMsg = ''; break;
+    case 'lother': S.logForm = { other: true, meal: defaultMeal() }; S.logMsg = ''; break;
+    case 'lmeal': S.logForm.meal = b.dataset.m; break;
+    case 'lver': S.logForm.ver = b.dataset.v; break;
+    case 'lport': S.logForm.portion = +b.dataset.p; break;
+    case 'lsave': {
+      const f = S.logForm;
+      if (f.other) {
+        const label = val('l-name').trim(), kcal = Math.round(+val('l-kcal'));
+        if (!label || !(kcal >= 0)) return true;
+        addEntry({ uid: Sync.newId(), user: me(), date, meal: f.meal, recipe_id: null, ver: null, portion: 1, label, kcal, P: Math.round(+val('l-p')) || 0, C: 0, F: 0 });
+      } else addEntry(recipeEntry(byId(f.recipe_id), f.ver, f.portion, f.meal, date));
+      reset(); S.logMsg = t('logged'); break;
+    }
+    case 'ldel': { const i = S.intake.findIndex(e => e.uid === b.dataset.u); if (i >= 0) { S.intake.splice(i, 1); persistFit(); Sync.op('intake_delete', b.dataset.u); } break; }
+    case 'gsave': {
+      const kcal = Math.round(+val('g-kcal')) || null, protein = Math.round(+val('g-p')) || null;
+      S.goals[me()] = { kcal, protein }; persistFit(); Sync.op('goals_save', { kcal, protein }); S.logMsg = t('goalsSaved'); break;
+    }
+    case 'rlog': {   // from the recipe page: log the version and portion being viewed
+      const r = byId(S.recipe), ver = r.versions.light ? S.ver : 'orig';
+      addEntry(recipeEntry(r, ver, 1, defaultMeal(), ymdOf(dateAt(0)))); S.logged = r.id; break;
+    }
+    default: return false;
+  }
+  persistFit(); render(); return true;
+}
+
 render();
 Sync.init();
 
