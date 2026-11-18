@@ -152,7 +152,9 @@ ul.plain { list-style: none; padding: 0; margin: 6px 0 0; display: flex; flex-di
 .daynav { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
 .daynav h1 { font-size: 30px; flex: 1; text-align: center; }
 .daynav .ghost { min-width: 44px; min-height: 44px; font-size: 20px; }
-.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.field { min-width: 0; }
+.field input { width: 100%; min-width: 0; }
 .linkish { border: 0; background: none; padding: 4px 0; color: var(--spice-deep); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; font-size: 14px; }
 ul.log li { grid-template-columns: 1fr auto auto; }
 ul.log .q small { display: block; font-weight: 500; color: var(--muted); font-size: 12px; text-align: right; }
@@ -160,6 +162,18 @@ ul.log .q small { display: block; font-weight: 500; color: var(--muted); font-si
 .pick select { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 8px; background: var(--ivory); padding: 0 34px 0 12px; font: 600 14.5px/1.2 var(--sans); color: var(--ink);
   appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2367574d' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.photo { position: relative; overflow: hidden; }
+.photo input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.photo.busy { opacity: .7; }
+.ainote { background: var(--wash); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; }
+.ainote ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); }
+.hgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; }
+.hgrid div { display: flex; flex-direction: column; }
+.hgrid b { font-size: 18px; }
+.hgrid span { font-size: 12px; color: var(--muted); font-weight: 600; }
+code.tok { display: block; word-break: break-all; background: var(--wash); border-radius: 6px; padding: 8px 10px; font-size: 13px; }
+details summary { cursor: pointer; font-weight: 700; font-size: 14px; color: var(--spice-deep); }
+.steps.small li { font-size: 14px; }
 .bar { display: flex; align-items: center; gap: 12px; }
 .bar .back { margin-bottom: 0; }
 html[lang="en"] .card-title, html[lang="en"] .intro h1 { letter-spacing: -.01em; }
@@ -535,6 +549,18 @@ const Sync = (() => {
     if (error) return fail(error);
     st.pwMsg = 'ok'; rerender();
   }
+  // server functions and one-off calls used by the fitness tab
+  async function invoke(name, body) {
+    try {
+      const { data, error } = await sb.functions.invoke(name, { body });
+      if (error) {
+        let detail = null; try { detail = await error.context.json(); } catch (e) { /* no body */ }
+        return { error: (detail && detail.error) || error.message || 'failed' };
+      }
+      return data || {};
+    } catch (e) { return { error: 'offline' }; }
+  }
+  async function rpc(name) { const { data, error } = await sb.rpc(name); return error ? { error: error.message } : { data }; }
   function setMode(m) { st.mode = m; st.error = ''; rerender(); }
   function backToEmail() { st.stage = 'email'; st.error = ''; rerender(); }
 
@@ -560,7 +586,7 @@ const Sync = (() => {
     if (error) return fail(error);
     clearLocal(); await afterLogin(st.user);
   }
-  function clearLocal() { S.plan = []; S.checked = {}; S.saved = {}; S.intake = []; S.goals = {}; setOutbox([]); persist(); save('intake', []); save('goals', {}); }
+  function clearLocal() { S.plan = []; S.checked = {}; S.saved = {}; S.intake = []; S.goals = {}; S.health = {}; setOutbox([]); persist(); save('intake', []); save('goals', {}); save('health', {}); }
 
   async function signOut() {
     if (channel) { sb.removeChannel(channel); channel = null; }
@@ -574,14 +600,15 @@ const Sync = (() => {
     if (!enabled || st.stage !== 'ready' || outbox().length) return;
     const h = st.household.id, wk = weekStart();
     const since = new Date(); since.setDate(since.getDate() - 35);
-    const [plan, checks, favs, mem, intake] = await Promise.all([
+    const [plan, checks, favs, mem, health, intake] = await Promise.all([
       sb.from('plan_entries').select('id, day, recipe_id, ver, servings').eq('household_id', h).eq('week_start', wk).order('updated_at'),
       sb.from('shopping_checks').select('item_key').eq('household_id', h).eq('week_start', wk),
       sb.from('favorites').select('user_id, recipe_id'),
       sb.from('members').select('user_id, display_name, kcal_goal, protein_goal').eq('household_id', h),
+      sb.from('health_daily').select('day, source, steps, active_kcal, resting_hr, weight_kg, exercise_min, sleep_min, sleep_score, readiness, hrv_ms').eq('user_id', st.user.id).gte('day', ymd(since)),
       sb.from('intake_logs').select('id, user_id, eaten_on, meal, recipe_id, ver, portion, label, kcal, protein_g, carbs_g, fat_g').gte('eaten_on', ymd(since)).order('created_at'),
     ]);
-    const err = plan.error || checks.error || favs.error || mem.error || intake.error;
+    const err = plan.error || checks.error || favs.error || mem.error || intake.error || health.error;
     if (err) { st.status = 'offline'; rerender(); return; }
     S.plan = plan.data.filter(r => RECIPES.some(x => x.id === r.recipe_id)).map(r => ({ uid: r.id, id: r.recipe_id, ver: r.ver, servings: r.servings, day: r.day }));
     S.checked = Object.fromEntries(checks.data.map(r => [r.item_key, true]));
@@ -590,7 +617,9 @@ const Sync = (() => {
     S.saved = Object.fromEntries(favs.data.filter(r => r.user_id === me).map(r => [r.recipe_id, true]));
     S.goals = Object.fromEntries(mem.data.map(m => [m.user_id, { kcal: m.kcal_goal, protein: m.protein_goal }]));
     S.intake = intake.data.map(r => ({ uid: r.id, user: r.user_id, date: r.eaten_on, meal: r.meal, recipe_id: r.recipe_id, ver: r.ver, portion: +r.portion, label: r.label || '', kcal: r.kcal || 0, P: r.protein_g || 0, C: r.carbs_g || 0, F: r.fat_g || 0 }));
-    save('intake', S.intake); save('goals', S.goals);
+    S.health = {};
+    health.data.forEach(r => { (S.health[r.day] = S.health[r.day] || {})[r.source] = r; });
+    save('intake', S.intake); save('goals', S.goals); save('health', S.health);
     S.partnerSaved = {};
     favs.data.filter(r => r.user_id !== me).forEach(r => { (S.partnerSaved[r.recipe_id] = S.partnerSaved[r.recipe_id] || []).push(nameOf(r.user_id)); });
     persist(); rerender();
@@ -603,6 +632,7 @@ const Sync = (() => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'plan_entries', filter: f }, schedulePull)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shopping_checks', filter: f }, schedulePull)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'intake_logs' }, schedulePull)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'health_daily' }, schedulePull)
       .subscribe();
   }
 
@@ -640,7 +670,7 @@ const Sync = (() => {
     flushing = false; rerender();
   }
 
-  return { enabled, st, init, signIn, setMode, changePassword, backToEmail, createHousehold, joinHousehold, signOut, op, newId, pending: () => outbox().length };
+  return { enabled, st, init, signIn, setMode, changePassword, invoke, rpc, url: CFG.url, backToEmail, createHousehold, joinHousehold, signOut, op, newId, pending: () => outbox().length };
 })();
 
 const STATUS_I = {
@@ -908,7 +938,7 @@ function viewMe() {
       ${z.pwMsg ? `<span class="toast" role="status">${t('pwChanged')}</span>` : ''}${errText(z.error)}</section>
     <p class="muted">${esc(z.user.email || '')}</p><button class="ghost" data-act="a-out" style="align-self:flex-start">${t('signOut')}</button>`
     : `<p class="muted">${t('localOnly')}</p>`;
-  return `<main><div class="page-head"><div class="bar"><span class="eyebrow">${t('meEyebrow')}</span>${langBtn()}</div><h1>${t('meH')}</h1></div>${goalsPanel()}${acct}</main>`;
+  return `<main><div class="page-head"><div class="bar"><span class="eyebrow">${t('meEyebrow')}</span>${langBtn()}</div><h1>${t('meH')}</h1></div>${goalsPanel()}${healthPanel()}${acct}</main>`;
 }
 function planInRange() { return S.plan.filter(e => S.range === 'week' || (S.range === 'weekday' ? e.day < 5 : e.day >= 5)); }
 function viewShop() {
@@ -994,21 +1024,39 @@ Object.assign(T.zh, {
   tToday: '今天', todayEyebrow: 'Today · 今天', goalSet: '在「我」里设每天的目标', eaten: '已吃', left: n => `还差 ${n}`, over: n => `超了 ${n}`,
   protein: '蛋白质', carbs: '碳水', fat: '脂肪', mealB: '早餐', mealL: '午餐', mealD: '晚餐', mealS: '加餐', nothing: '还没记录',
   logTitle: '记一餐', fromPlan: '今天菜单上的', noPlanToday: '今天菜单上没有菜。可以在食谱里打开一道菜记录，或者手填。',
-  other: '手填其他食物', foodName: '吃了什么', kcalL: '热量 kcal', proteinL: '蛋白质 g（可不填）', portion: '份量', meal: '哪一餐',
+  other: '手填其他食物', foodName: '吃了什么', kcalL: '热量 kcal', proteinL: '蛋白质 g', carbsL: '碳水 g', fatL: '脂肪 g', portion: '份量', meal: '哪一餐',
   log: '记录', logged: '已记到今天。', remove: '删除', goalsH: '每天的目标', kcalGoal: '热量 kcal', proteinGoal: '蛋白质 g', saveGoals: '保存目标',
   goalsSaved: '目标已保存。', goalsHint: '只用来显示进度。对方也看得到你的记录和目标。', logRecipe: '记到今天的饮食', portionN: p => `${p} 份`,
   dayLabel: d => `${d.getMonth() + 1}月${d.getDate()}日 ${DAYS_I.zh[(d.getDay() + 6) % 7]}`, prevDay: '前一天', nextDay: '后一天', today: '回到今天',
-  whose: '看谁的', readOnly: n => `${n} 的记录，只能看。`, partnerNoGoal: '还没设目标',
+  photoBtn: '拍照估算热量', photoBusy: '正在看照片…', photoNote: (c, n) => `AI 估算，可信度${{ low: '低', medium: '中', high: '高' }[c] || ''}。${n || ''} 数字可以改了再记录。`,
+  photoErr: { not_configured: '拍照估算还没开通：需要在 Supabase 里加一个 API key（见 Claude 的说明）。', daily_cap: '今天拍照估算的次数用完了，明天再试，或者手填。', not_food: '照片里好像没有食物，换一张试试。', offline: '没联网，联网后再试。', bad_image: '照片读不出来，换一张试试。', default: '估算失败了，可以再试一次或者手填。' },
+  photoLocal: '拍照估算只在同步版里能用。',
+  healthH: '健康数据', steps: '步数', activeKcal: '活动消耗', exercise: '锻炼', restingHr: '静息心率', weight: '体重', sleep: '睡眠',
+  readiness: 'Readiness 准备度', sleepScore: '睡眠分', hrv: 'HRV', minutes: n => `${n} 分钟`, hrsMin: (h, m) => `${h} 小时 ${m} 分`,
+  noHealth: '这天还没有健康数据。', setupHealth: '设置 Apple Health 自动上传',
+  ahH: 'Apple Health 自动上传', ahNone: '还没有设置。生成一个上传码，再按下面的步骤在 iPhone 上建一个快捷指令。', ahHas: d => `上传码建于 ${d}。忘了的话可以重新生成，旧的会失效。`,
+  ahGen: '生成上传码', ahRegen: '重新生成上传码', ahShown: '这个上传码只显示这一次，先复制到快捷指令里：', copy: '复制', copied: '已复制', ahUrl: '上传地址',
+  ahSteps: '在 iPhone 上怎么设置', ahLast: d => `最近一次上传：${d}`,
+ readOnly: n => `${n} 的记录，只能看。`, macroShort: (p, c, f) => `蛋白 ${p} · 碳水 ${c} · 脂肪 ${f}`, partnerNoGoal: '还没设目标',
 });
 Object.assign(T.en, {
   tToday: 'Today', todayEyebrow: 'Today', goalSet: 'Set daily goals in Me', eaten: 'Eaten', left: n => `${n} to go`, over: n => `${n} over`,
   protein: 'Protein', carbs: 'Carbs', fat: 'Fat', mealB: 'Breakfast', mealL: 'Lunch', mealD: 'Dinner', mealS: 'Snack', nothing: 'Nothing logged yet',
   logTitle: 'Log a meal', fromPlan: 'On today’s plan', noPlanToday: 'Nothing planned today. Open a recipe to log it, or enter something by hand.',
-  other: 'Something else', foodName: 'What you ate', kcalL: 'Calories (kcal)', proteinL: 'Protein g (optional)', portion: 'Portion', meal: 'Meal',
+  other: 'Something else', foodName: 'What you ate', kcalL: 'Calories (kcal)', proteinL: 'Protein (g)', carbsL: 'Carbs (g)', fatL: 'Fat (g)', portion: 'Portion', meal: 'Meal',
   log: 'Log it', logged: 'Logged for today.', remove: 'Remove', goalsH: 'Daily goals', kcalGoal: 'Calories (kcal)', proteinGoal: 'Protein (g)', saveGoals: 'Save goals',
   goalsSaved: 'Goals saved.', goalsHint: 'Only used to show progress. Your partner can see your log and goals too.', logRecipe: 'Log to today’s food', portionN: p => `${p} portion${p === 1 ? '' : 's'}`,
   dayLabel: d => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }), prevDay: 'Previous day', nextDay: 'Next day', today: 'Back to today',
-  whose: 'Whose log', readOnly: n => `${n}’s log, view only.`, partnerNoGoal: 'No goals yet',
+  photoBtn: 'Estimate from a photo', photoBusy: 'Looking at the photo…', photoNote: (c, n) => `AI estimate, ${c || 'unknown'} confidence. ${n || ''} Adjust the numbers before logging if needed.`,
+  photoErr: { not_configured: 'Photo estimates aren’t switched on yet: an API key needs adding in Supabase (see Claude’s note).', daily_cap: 'Today’s photo estimates are used up. Try tomorrow or enter it by hand.', not_food: 'That photo doesn’t seem to show food. Try another.', offline: 'You’re offline. Try again when connected.', bad_image: 'Couldn’t read that photo. Try another.', default: 'The estimate failed. Try again or enter it by hand.' },
+  photoLocal: 'Photo estimates work only in the synced app.',
+  healthH: 'Health', steps: 'Steps', activeKcal: 'Active energy', exercise: 'Exercise', restingHr: 'Resting heart rate', weight: 'Weight', sleep: 'Sleep',
+  readiness: 'Readiness', sleepScore: 'Sleep score', hrv: 'HRV', minutes: n => `${n} min`, hrsMin: (h, m) => `${h} h ${m} min`,
+  noHealth: 'No health data for this day yet.', setupHealth: 'Set up Apple Health upload',
+  ahH: 'Apple Health upload', ahNone: 'Not set up yet. Create an upload code, then build a Shortcut on your iPhone with the steps below.', ahHas: d => `Upload code created ${d}. If you lose it, create a new one; the old one stops working.`,
+  ahGen: 'Create upload code', ahRegen: 'Create a new upload code', ahShown: 'This code is shown only once. Copy it into the Shortcut now:', copy: 'Copy', copied: 'Copied', ahUrl: 'Upload address',
+  ahSteps: 'How to set it up on iPhone', ahLast: d => `Last upload: ${d}`,
+  whose: 'Whose log', readOnly: n => `${n}’s log, view only.`, macroShort: (p, c, f) => `P ${p} · C ${c} · F ${f} g`, partnerNoGoal: 'No goals yet',
 });
 ICON.today = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>';
 
@@ -1017,7 +1065,7 @@ const mealName = m => t({ breakfast: 'mealB', lunch: 'mealL', dinner: 'mealD', s
 const PORTIONS = [0.5, 1, 1.5, 2];
 S.intake = load('intake', []);
 S.goals = load('goals', {});          // { [user]: { kcal, protein } }
-Object.assign(S, { dayOff: 0, whose: null, logForm: null, logMsg: '' });
+Object.assign(S, { dayOff: 0, whose: null, logForm: null, logMsg: '', photo: null, ingest: null, health: load('health', {}) });
 const persistFit = () => { save('intake', S.intake); save('goals', S.goals); };
 
 const me = () => (Sync.enabled && Sync.st.user ? Sync.st.user.id : 'me');
@@ -1062,14 +1110,14 @@ function viewToday() {
     const list = rows.filter(e => e.meal === m);
     if (!list.length) return '';
     return `<section><h3 class="group">${mealName(m)}</h3><ul class="ing log">${list.map(e => `<li><span class="nm">${esc(entryTitle(e))}${e.portion && e.portion !== 1 ? ` <span class="muted">× ${e.portion}</span>` : ''}</span>
-      <span class="q">${e.kcal} kcal${e.P ? `<small>${e.P} g ${t('protein')}</small>` : ''}</span>${mine ? `<button class="ghost" data-act="ldel" data-u="${e.uid}" aria-label="${t('remove')} ${esc(entryTitle(e))}">${t('remove')}</button>` : ''}</li>`).join('')}</ul></section>`;
+      <span class="q">${e.kcal} kcal<small>${t('macroShort', e.P, e.C, e.F)}</small></span>${mine ? `<button class="ghost" data-act="ldel" data-u="${e.uid}" aria-label="${t('remove')} ${esc(entryTitle(e))}">${t('remove')}</button>` : ''}</li>`).join('')}</ul></section>`;
   }).join('') || `<p class="empty">${t('nothing')}</p>`;
   const whoSeg = people ? `<div class="seg" role="group" aria-label="${t('whose')}" style="align-self:flex-start">${people.map(m => `<button data-act="whose" data-u="${m.user_id}" aria-pressed="${m.user_id === who}">${esc(m.display_name || '—')}</button>`).join('')}</div>` : '';
   return `<main><div class="page-head"><div class="bar"><span class="eyebrow">${t('todayEyebrow')}</span>${langBtn()}</div>
       <div class="daynav"><button class="ghost" data-act="dprev" aria-label="${t('prevDay')}">‹</button><h1>${esc(t('dayLabel', d))}</h1><button class="ghost" data-act="dnext" aria-label="${t('nextDay')}">›</button></div>
       ${S.dayOff ? `<button class="linkish" data-act="dtoday">${t('today')}</button>` : ''}${syncLine()}</div>
     ${whoSeg}${!mine ? `<p class="muted">${esc(t('readOnly', name))}</p>` : ''}
-    ${summary}${meals}${mine ? logPanel(d, date) : ''}</main>`;
+    ${summary}${mine ? healthCard(date) : ''}${meals}${mine ? logPanel(d, date) : ''}</main>`;
 }
 
 function logPanel(d, date) {
@@ -1082,9 +1130,9 @@ function logPanel(d, date) {
   let form = '';
   if (f) {
     const segMeal = `<div class="row"><span class="label">${t('meal')}</span><div class="seg">${MEALS.map(m => `<button data-act="lmeal" data-m="${m}" aria-pressed="${f.meal === m}">${mealName(m)}</button>`).join('')}</div></div>`;
-    if (f.other) form = `${segMeal}<label class="field"><span>${t('foodName')}</span><input id="l-name" type="text" value="${esc(f.name || '')}"></label>
-      <div class="two"><label class="field"><span>${t('kcalL')}</span><input id="l-kcal" type="number" inputmode="numeric" min="0" value="${esc(f.kcal || '')}"></label>
-      <label class="field"><span>${t('proteinL')}</span><input id="l-p" type="number" inputmode="numeric" min="0" value="${esc(f.p || '')}"></label></div>
+    if (f.other) form = `${f.ai ? `<div class="ainote"><p>${esc(t('photoNote', f.ai.confidence, f.ai.note))}</p>${(f.ai.items || []).length ? `<ul>${f.ai.items.map(i => `<li>${esc(i.name)} · ${Math.round(i.grams || 0)} g · ${Math.round(i.kcal || 0)} kcal</li>`).join('')}</ul>` : ''}</div>` : ''}${segMeal}<label class="field"><span>${t('foodName')}</span><input id="l-name" type="text" value="${esc(f.name || '')}"></label>
+      <div class="two">${[['l-kcal', 'kcalL', 'kcal'], ['l-p', 'proteinL', 'p'], ['l-c', 'carbsL', 'c'], ['l-f', 'fatL', 'fat']].map(([id, lab, k]) =>
+        `<label class="field"><span>${t(lab)}</span><input id="${id}" type="number" inputmode="decimal" min="0" value="${esc(f[k] || '')}"></label>`).join('')}</div>
       <button class="action" data-act="lsave">${t('log')}</button>`;
     else {
       const r = byId(f.recipe_id), e = recipeEntry(r, f.ver, f.portion, f.meal, date);
@@ -1093,7 +1141,12 @@ function logPanel(d, date) {
         <button class="action" data-act="lsave">${t('log')} · ${e.kcal} kcal · ${e.P} g ${t('protein')}</button>`;
     }
   }
-  return `<div class="section-title"><h2>${t('logTitle')}</h2></div><section class="panel"><span class="label">${t('fromPlan')}</span>${chips}${form}
+  const ph = S.photo || {};
+  const photo = Sync.enabled
+    ? `<label class="action photo ${ph.busy ? 'busy' : ''}">${ICON.camera}<span>${ph.busy ? t('photoBusy') : t('photoBtn')}</span><input id="l-photo" type="file" accept="image/*" capture="environment" ${ph.busy ? 'disabled' : ''}></label>
+       ${ph.error ? `<p class="err" role="alert">${esc((T[LANG].photoErr)[ph.error] || T[LANG].photoErr.default)}</p>` : ''}`
+    : `<p class="muted">${t('photoLocal')}</p>`;
+  return `<div class="section-title"><h2>${t('logTitle')}</h2></div><section class="panel">${photo}<span class="label">${t('fromPlan')}</span>${chips}${form}
     ${S.logMsg ? `<span class="toast" role="status">${esc(S.logMsg)}</span>` : ''}</section>`;
 }
 
@@ -1112,7 +1165,7 @@ function fitnessClick(a, b) {
   const date = ymdOf(dateAt(S.dayOff));
   const reset = () => { S.logForm = null; };
   // keep what was typed in the free-entry form when another button re-renders it
-  if (S.logForm && S.logForm.other) Object.assign(S.logForm, { name: val('l-name'), kcal: val('l-kcal'), p: val('l-p') });
+  if (S.logForm && S.logForm.other) Object.assign(S.logForm, { name: val('l-name'), kcal: val('l-kcal'), p: val('l-p'), c: val('l-c'), fat: val('l-f') });
   switch (a) {
     case 'dprev': S.dayOff--; reset(); S.logMsg = ''; break;
     case 'dnext': S.dayOff++; reset(); S.logMsg = ''; break;
@@ -1128,7 +1181,7 @@ function fitnessClick(a, b) {
       if (f.other) {
         const label = val('l-name').trim(), kcal = Math.round(+val('l-kcal'));
         if (!label || !(kcal >= 0)) return true;
-        addEntry({ uid: Sync.newId(), user: me(), date, meal: f.meal, recipe_id: null, ver: null, portion: 1, label, kcal, P: Math.round(+val('l-p')) || 0, C: 0, F: 0 });
+        addEntry({ uid: Sync.newId(), user: me(), date, meal: f.meal, recipe_id: null, ver: null, portion: 1, label, kcal, P: Math.round(+val('l-p')) || 0, C: Math.round(+val('l-c')) || 0, F: Math.round(+val('l-f')) || 0 });
       } else addEntry(recipeEntry(byId(f.recipe_id), f.ver, f.portion, f.meal, date));
       reset(); S.logMsg = t('logged'); break;
     }
@@ -1141,9 +1194,85 @@ function fitnessClick(a, b) {
       const r = byId(S.recipe), ver = r.versions.light ? S.ver : 'orig';
       addEntry(recipeEntry(r, ver, 1, defaultMeal(), ymdOf(dateAt(0)))); S.logged = r.id; break;
     }
+    case 'ahgen': Sync.rpc('create_ingest_token').then(r => { if (r.data) S.ingest = { loaded: true, since: new Date().toISOString(), token: r.data }; render(); }); return true;
+    case 'copy': { const v = b.dataset.v; navigator.clipboard && navigator.clipboard.writeText(v).then(() => { b.textContent = t('copied'); }).catch(() => {}); return true; }
     default: return false;
   }
   persistFit(); render(); return true;
+}
+
+ICON.camera = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.6-2.4h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.6"/></svg>';
+
+// ---- photo estimate: shrink the photo on the phone, send it, prefill the manual form ----
+async function shrinkPhoto(file) {
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, 1024 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.8);
+}
+async function estimatePhoto(file) {
+  S.photo = { busy: true }; render();
+  let image;
+  try { image = await shrinkPhoto(file); } catch (e) { S.photo = { error: 'bad_image' }; render(); return; }
+  const res = await Sync.invoke('food-photo', { image, lang: LANG });
+  if (res.error || !res.total) { S.photo = { error: res.error || 'default' }; render(); return; }
+  const tt = res.total, r0 = x => String(Math.round(+x || 0));
+  S.photo = null;
+  S.logForm = { other: true, meal: (S.logForm && S.logForm.meal) || defaultMeal(), name: res.dish || '', kcal: r0(tt.kcal), p: r0(tt.protein_g), c: r0(tt.carbs_g), fat: r0(tt.fat_g),
+    ai: { confidence: res.confidence, note: res.note, items: res.items } };
+  S.logMsg = ''; render();
+}
+document.addEventListener('change', ev => {
+  if (ev.target.id !== 'l-photo' || !ev.target.files || !ev.target.files[0]) return;
+  ev.stopImmediatePropagation(); estimatePhoto(ev.target.files[0]);
+}, true);
+
+// ---- health card on Today ----
+function healthCard(date) {
+  const h = S.health[date] || {}, a = h.apple || {}, o = h.oura || {};
+  const cells = [];
+  const add = (label, v) => { if (v !== null && v !== undefined && v !== '') cells.push(`<div><b>${v}</b><span>${label}</span></div>`); };
+  add(t('steps'), a.steps != null ? a.steps.toLocaleString() : null);
+  add(t('activeKcal'), a.active_kcal != null ? `${a.active_kcal} kcal` : null);
+  add(t('exercise'), a.exercise_min != null ? t('minutes', a.exercise_min) : null);
+  add(t('restingHr'), a.resting_hr != null ? `${a.resting_hr} bpm` : null);
+  add(t('weight'), a.weight_kg != null ? `${a.weight_kg} kg` : null);
+  add(t('sleep'), a.sleep_min != null ? t('hrsMin', Math.floor(a.sleep_min / 60), a.sleep_min % 60) : null);
+  add(t('readiness'), o.readiness); add(t('sleepScore'), o.sleep_score); add(t('hrv'), o.hrv_ms != null ? `${o.hrv_ms} ms` : null);
+  return `<section class="panel"><span class="label">${t('healthH')}</span>${cells.length ? `<div class="hgrid">${cells.join('')}</div>`
+    : `<p class="muted">${t('noHealth')}${Sync.enabled ? ` <button class="linkish" data-act="tab" data-t="me">${t('setupHealth')}</button>` : ''}</p>`}</section>`;
+}
+
+// ---- Apple Health upload code in Me ----
+const INGEST_URL = () => (Sync.url || '') + '/functions/v1/health-ingest';
+function healthPanel() {
+  if (!Sync.enabled) return '';
+  const g = S.ingest || {};
+  if (g.loaded === undefined) { S.ingest = { loaded: false }; Sync.rpc('has_ingest_token').then(r => { S.ingest = { loaded: true, since: r.data }; render(); }); }
+  const lastDay = Object.keys(S.health).filter(d => S.health[d].apple).sort().pop();
+  const steps = LANG === 'en' ? [
+    'Open the Shortcuts app → Automation → + → Time of Day → 9:30 PM, Daily → Run Immediately → Next → New Blank Automation.',
+    'Add "Find Health Samples": Type Steps, Start Date is Today. Then add "Calculate Statistics": Sum. Rename the result Steps.',
+    'Repeat for Active Energy (Sum) and Exercise Minutes (Sum).',
+    'Add "Find Health Samples": Type Resting Heart Rate, sort by Start Date, Latest First, Limit 1. Do the same for Weight.',
+    'Add "Get Contents of URL": paste the upload address; Method POST; Headers: x-hf-token = your upload code; Request Body JSON with keys steps, active_kcal, exercise_min, resting_hr, and weight_lb (or weight_kg), each set to the matching result.',
+    'Tap ▶︎ once to test. The response should say "ok": true, and the numbers appear on Today.',
+  ] : [
+    '打开"快捷指令"→ 自动化 → + → 特定时间 → 晚上 9:30、每天 → 立即运行 → 下一步 → 新建空白自动化。',
+    '加"查找健康样本"：类型 步数，开始日期 是 今天。再加"计算统计数据"：总和。把结果改名为 Steps。',
+    '同样做"活动能量"（总和）和"锻炼分钟数"（总和）。',
+    '加"查找健康样本"：类型 静息心率，按开始日期排序、最新的在前、限制 1 个。体重同样做一次。',
+    '加"获取 URL 内容"：粘贴上传地址；方法 POST；头部加 x-hf-token = 你的上传码；请求体选 JSON，键是 steps、active_kcal、exercise_min、resting_hr，体重用 weight_lb（磅）或 weight_kg（公斤），每个值选对应的结果。',
+    '点 ▶︎ 运行一次试试：返回里有 "ok": true，就能在「今天」里看到数字。',
+  ];
+  return `<section class="panel"><span class="label">${t('ahH')}</span>
+    ${g.token ? `<p class="muted">${t('ahShown')}</p><code class="tok">${esc(g.token)}</code><button class="ghost" data-act="copy" data-v="${esc(g.token)}">${t('copy')}</button>`
+      : `<p class="muted">${g.since ? esc(t('ahHas', new Date(g.since).toLocaleDateString())) : t('ahNone')}</p>`}
+    <button class="ghost" data-act="ahgen" style="align-self:flex-start">${t(g.since || g.token ? 'ahRegen' : 'ahGen')}</button>
+    <span class="label">${t('ahUrl')}</span><code class="tok">${esc(INGEST_URL())}</code><button class="ghost" data-act="copy" data-v="${esc(INGEST_URL())}">${t('copy')}</button>
+    ${lastDay ? `<p class="sync">${esc(t('ahLast', lastDay))}</p>` : ''}
+    <details><summary>${t('ahSteps')}</summary><ol class="steps small">${steps.map(x => `<li><span>${esc(x)}</span></li>`).join('')}</ol></details></section>`;
 }
 
 render();
