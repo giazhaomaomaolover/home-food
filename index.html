@@ -156,6 +156,10 @@ ul.plain { list-style: none; padding: 0; margin: 6px 0 0; display: flex; flex-di
 .linkish { border: 0; background: none; padding: 4px 0; color: var(--spice-deep); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; font-size: 14px; }
 ul.log li { grid-template-columns: 1fr auto auto; }
 ul.log .q small { display: block; font-weight: 500; color: var(--muted); font-size: 12px; text-align: right; }
+.filters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pick select { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 8px; background: var(--ivory); padding: 0 34px 0 12px; font: 600 14.5px/1.2 var(--sans); color: var(--ink);
+  appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2367574d' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .bar { display: flex; align-items: center; gap: 12px; }
 .bar .back { margin-bottom: 0; }
 html[lang="en"] .card-title, html[lang="en"] .intro h1 { letter-spacing: -.01em; }
@@ -652,7 +656,7 @@ const ser = s => s === 1 ? '1 serving' : s + ' servings';
 const T = {
   zh: {
     title: 'Home Food 预览', brandSub: '我们的家常菜 · OUR KITCHEN', search: '搜索食谱', ph: '菜名或食材，比如 虾、香茅', byType: '按类型', byCuisine: '按菜系',
-    all: '全部', allTypes: '全部类型', low: '650 以内', lowCarb: '低碳水', lowFat: '低脂', byNut: '按营养', count: (n, t) => `${n} 道菜${n < t ? `（共 ${t} 道）` : ''}`,
+    all: '全部', allTypes: '全部类型', allCuisines: '全部菜系', low: '650 以内', lowCarb: '低碳水', lowFat: '低脂', byNut: '按营养', count: (n, t) => `${n} 道菜${n < t ? `（共 ${t} 道）` : ''}`,
     empty: '没有找到。换个菜名或食材试试。', footCook: 'kcal 是每人一餐的估算，含主食和配菜。超过或可能超过 650 的正餐都有减脂版，原版保留不变。营养筛选按原版或减脂版任一达到就算：650 以内只看正餐和早餐；低碳水是碳水占热量 26% 以下；低脂是脂肪占热量 30% 以下。',
     pp: 'kcal / 人', lightN: k => `减脂版 ${k}`, alt: n => `${n}的成品示意图`, ai: 'AI 示意图', noCover: '封面待补',
     back: '‹ 全部食谱', addWeek: '加入本周 →', saveL: '收藏', source: a => `来源 ${a} 的 Instagram`,
@@ -679,7 +683,7 @@ const T = {
   },
   en: {
     title: 'Home Food preview', brandSub: 'OUR KITCHEN · 我们的家常菜', search: 'Search recipes', ph: 'Dish or ingredient, e.g. shrimp, lemongrass', byType: 'By type', byCuisine: 'By cuisine',
-    all: 'All', allTypes: 'All types', low: 'Under 650', lowCarb: 'Low carb', lowFat: 'Low fat', byNut: 'By nutrition', count: (n, t) => `${n} recipes${n < t ? ` (of ${t})` : ''}`,
+    all: 'All', allTypes: 'All types', allCuisines: 'All cuisines', low: 'Under 650', lowCarb: 'Low carb', lowFat: 'Low fat', byNut: 'By nutrition', count: (n, t) => `${n} recipes${n < t ? ` (of ${t})` : ''}`,
     empty: 'Nothing found. Try another dish or ingredient.', footCook: 'kcal is an estimate for one person’s meal, including rice or sides. Every main that is or may be over 650 has a lighter version; the original stays as it is. The nutrition filters count a dish if either the original or the lighter version qualifies: Under 650 covers mains and breakfasts only; low carb means carbs are under 26% of calories; low fat means fat is under 30% of calories.',
     pp: 'kcal / person', lightN: k => `Lighter ${k}`, alt: n => `Illustration of ${n}`, ai: 'AI illustration', noCover: 'Cover to come',
     back: '‹ All recipes', addWeek: 'Add to this week →', saveL: 'Save', source: a => `From ${a} on Instagram`,
@@ -786,10 +790,9 @@ function viewCook() {
   return `<header class="masthead"><span class="seal">HF</span><span class="brand">Home Food<small>${t('brandSub')}</small></span>${langBtn()}</header>
   <main>
     <label class="search">${ICON.search}<span style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">${t('search')}</span><input id="q" type="search" placeholder="${esc(t('ph'))}" value="${esc(S.q)}" autocomplete="off"></label>
-    <div class="chips" role="group" aria-label="${t('byType')}">${['*', ...Object.keys(TYPES_I.zh)].map(k => `<button class="chip" data-act="rtype" data-t="${k}" aria-pressed="${S.rtype === k}">${k === '*' ? t('allTypes') : typeName(k)}</button>`).join('')}</div>
+    <div class="filters"><label class="pick"><span class="sr">${t('byType')}</span><select data-act="rtype-sel" aria-label="${t('byType')}">${['*', ...Object.keys(TYPES_I.zh)].map(k => `<option value="${k}" ${S.rtype === k ? 'selected' : ''}>${k === '*' ? t('allTypes') : `${typeName(k)} (${RECIPES.filter(r => r.type === k).length})`}</option>`).join('')}</select></label>
+      <label class="pick"><span class="sr">${t('byCuisine')}</span><select data-act="cuisine-sel" aria-label="${t('byCuisine')}">${cuisines.map(c => `<option value="${esc(c)}" ${S.cuisine === c ? 'selected' : ''}>${c === '*' ? t('allCuisines') : `${esc(cuisineName(c))} (${cnt[c]})`}</option>`).join('')}</select></label></div>
     <div class="chips" role="group" aria-label="${t('byNut')}">${[['low', 'low'], ['carb', 'lowCarb'], ['fat', 'lowFat']].map(([k, lab]) => `<button class="chip nutf" data-act="nut" data-k="${k}" aria-pressed="${S.nut[k]}">${t(lab)}</button>`).join('')}</div>
-    <div class="chips" role="group" aria-label="${t('byCuisine')}">${cuisines.map(c => `<button class="chip" data-act="cuisine" data-c="${esc(c)}" aria-pressed="${S.cuisine === c}">${c === '*' ? t('all') : esc(cuisineName(c))}</button>`).join('')}
-</div>
     <p class="count">${t('count', list.length, RECIPES.length)}</p>
     <div class="cards">${cards || `<p class="empty">${t('empty')}</p>`}</div>
     <p class="muted">${t('footCook')}</p>
@@ -971,6 +974,8 @@ document.addEventListener('click', ev => {
   if (toTop) window.scrollTo(0, 0);
 });
 document.addEventListener('change', ev => {
+  const sel = ev.target.closest('select[data-act]');
+  if (sel) { if (sel.dataset.act === 'rtype-sel') S.rtype = sel.value; if (sel.dataset.act === 'cuisine-sel') S.cuisine = sel.value; render(); return; }
   const c = ev.target.closest('[data-act="check"],[data-act="prep"]'); if (!c) return;
   if (c.dataset.act === 'check') { const k = c.dataset.k; if (c.checked) { S.checked[k] = true; Sync.op('check_add', k); } else { delete S.checked[k]; Sync.op('check_del', k); } persist(); }
   else { const r = byId(S.recipe), pk = r.id + ':' + (r.versions.light ? S.ver : 'orig'); S.prep[pk] = S.prep[pk] || {}; S.prep[pk][c.dataset.k] = c.checked; }
