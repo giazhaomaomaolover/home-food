@@ -195,6 +195,22 @@ ul.dbres .q small { display: block; font-weight: 500; color: var(--muted); font-
 .stars button { border: 0; background: none; font-size: 26px; line-height: 1; padding: 6px 4px; color: var(--spice); min-width: 36px; min-height: 40px; }
 .stars-mini { color: var(--spice); letter-spacing: 1px; }
 .chip.favf[aria-pressed="true"] { background: var(--spice); border-color: var(--spice); color: #fff; }
+.seg.tview { margin-top: 8px; align-self: flex-start; }
+.tcard { gap: 4px; }
+.thead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.thead b { font-size: 15px; }
+.tchart { width: 100%; height: auto; display: block; overflow: visible; touch-action: pan-y; }
+.tchart .bar { fill: var(--spice); }
+.tchart .line { fill: none; stroke: var(--spice); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.tchart .pt { fill: var(--spice); stroke: var(--ivory); stroke-width: 2; }
+.tchart .grid { stroke: var(--line); stroke-width: 1; }
+.tchart .goal { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.tchart .yl { font: 600 10px var(--sans); fill: var(--muted); text-anchor: end; }
+.tchart .xl { font: 600 10px var(--sans); fill: var(--muted); text-anchor: middle; }
+.tchart .hit { fill: transparent; cursor: pointer; }
+.tchart .hit.on { fill: color-mix(in srgb, var(--spice) 10%, transparent); }
+.tip { font-size: 13px; font-weight: 700; min-height: 18px; margin: 0; }
+.tnote { font-size: 12.5px; margin: 0; }
 .bar { display: flex; align-items: center; gap: 12px; }
 .bar .back { margin-bottom: 0; }
 html[lang="en"] .card-title, html[lang="en"] .intro h1 { letter-spacing: -.01em; }
@@ -704,7 +720,7 @@ const Sync = (() => {
     flushing = false; rerender();
   }
 
-  return { enabled, st, init, signIn, setMode, changePassword, invoke, rpc, url: CFG.url, backToEmail, createHousehold, joinHousehold, signOut, op, newId, pending: () => outbox().length };
+  return { enabled, st, init, signIn, setMode, changePassword, invoke, rpc, refresh: () => pull(), url: CFG.url, backToEmail, createHousehold, joinHousehold, signOut, op, newId, pending: () => outbox().length };
 })();
 
 const STATUS_I = {
@@ -981,7 +997,7 @@ function viewMe() {
       ${z.pwMsg ? `<span class="toast" role="status">${t('pwChanged')}</span>` : ''}${errText(z.error)}</section>
     <p class="muted">${esc(z.user.email || '')}</p><button class="ghost" data-act="a-out" style="align-self:flex-start">${t('signOut')}</button>`
     : `<p class="muted">${t('localOnly')}</p>`;
-  return `<main><div class="page-head"><div class="bar"><span class="eyebrow">${t('meEyebrow')}</span>${langBtn()}</div><h1>${t('meH')}</h1></div>${goalsPanel()}${healthPanel()}${acct}</main>`;
+  return `<main><div class="page-head"><div class="bar"><span class="eyebrow">${t('meEyebrow')}</span>${langBtn()}</div><h1>${t('meH')}</h1></div>${goalsPanel()}${healthPanel()}${ouraPanel()}${acct}</main>`;
 }
 function planInRange() { return S.plan.filter(e => S.range === 'week' || (S.range === 'weekday' ? e.day < 5 : e.day >= 5)); }
 function viewShop() {
@@ -1091,6 +1107,10 @@ Object.assign(T.zh, {
   dbSearch: '搜食物库', dbPh: '比如 鸡胸肉、豆浆、greek yogurt', dbGo: '搜', dbBusy: '搜索中…', dbNone: '没找到。换个说法，或者用英文搜（食物库是英文的）。', dbHint: '免费的美国农业部（USDA）和 Open Food Facts 食物库，英文搜结果最多。',
   scan: '扫条形码', scanBusy: '在读条形码…', scanFail: '没读出条形码。拍近一点、对准条码再试，或者手动输入数字：', barNum: '条形码数字', barGo: '查', barNone: '这个条形码在库里没找到，可以手填。',
   per100: '每 100 g', amount: '吃了多少（克）', oneServing: s => `1 份（${s}）`, g100: '100 g',
+  ouraH: 'Oura', ouraConnect: '连接 Oura', ouraOff: '还没连接。点下面的按钮，用你的 Oura 账号登录并同意，就连上了。', ouraOn: d => `已连接${d ? `，最近同步：${d}` : ''}。每天早上和下午自动同步。`,
+  ouraSync: '现在同步', ouraSyncing: '同步中…', ouraDisc: '断开 Oura', ouraErr: { not_configured: 'Oura 的 Client ID 和 Secret 还没加到 Supabase（见 Claude 的说明）。', default: '没连上，再试一次。' },
+  ouraBack: { connected: 'Oura 已连接，最近 30 天的数据正在同步。', cancelled: '你取消了 Oura 授权。', expired: '授权超时了，再点一次「连接 Oura」。', failed: 'Oura 授权没成功，再试一次。' },
+  ouraLastErr: e => `上次同步出错：${e}`,
   foodsH: '常吃的', foodSearch: '搜常吃的', saveFood: '存到常吃的，下次直接选', removeFood: '从常吃里删掉', noFoods: '手填或拍照记过的食物会存在这里，下次点一下就能记。', perPortion: '每份',
   whose: '看谁的', readOnly: n => `${n} 的记录，只能看。`, macroShort: (p, c, f) => `蛋白 ${p} · 碳水 ${c} · 脂肪 ${f}`, partnerNoGoal: '还没设目标',
 });
@@ -1114,6 +1134,10 @@ Object.assign(T.en, {
   dbSearch: 'Search foods', dbPh: 'e.g. chicken breast, soy milk, greek yogurt', dbGo: 'Search', dbBusy: 'Searching\u2026', dbNone: 'Nothing found. Try other words; the database is in English.', dbHint: 'Free USDA and Open Food Facts databases; English searches find the most.',
   scan: 'Scan a barcode', scanBusy: 'Reading the barcode\u2026', scanFail: 'Couldn\u2019t read a barcode. Get closer and centre it, or type the number:', barNum: 'Barcode number', barGo: 'Look up', barNone: 'That barcode isn\u2019t in the database. Enter it by hand instead.',
   per100: 'per 100 g', amount: 'How much (grams)', oneServing: s => `1 serving (${s})`, g100: '100 g',
+  ouraH: 'Oura', ouraConnect: 'Connect Oura', ouraOff: 'Not connected. Tap below, sign in with your Oura account and approve.', ouraOn: d => `Connected${d ? `; last sync ${d}` : ''}. Syncs automatically every morning and afternoon.`,
+  ouraSync: 'Sync now', ouraSyncing: 'Syncing\u2026', ouraDisc: 'Disconnect Oura', ouraErr: { not_configured: 'The Oura Client ID and Secret haven\u2019t been added to Supabase yet.', default: 'Couldn\u2019t connect. Try again.' },
+  ouraBack: { connected: 'Oura connected; the last 30 days are syncing.', cancelled: 'You cancelled the Oura sign-in.', expired: 'The sign-in timed out. Tap Connect Oura again.', failed: 'The Oura sign-in didn\u2019t work. Try again.' },
+  ouraLastErr: e => `Last sync error: ${e}`,
   foodsH: 'My foods', foodSearch: 'Search my foods', saveFood: 'Save to My foods for next time', removeFood: 'Remove from My foods', noFoods: 'Foods you enter by hand or from a photo are kept here, so next time it\u2019s one tap.', perPortion: 'per portion',
   whose: 'Whose log', readOnly: n => `${n}’s log, view only.`, macroShort: (p, c, f) => `P ${p} · C ${c} · F ${f} g`, partnerNoGoal: 'No goals yet',
 });
@@ -1174,10 +1198,11 @@ function viewToday() {
   }).join('') || `<p class="empty">${t('nothing')}</p>`;
   const whoSeg = people ? `<div class="seg" role="group" aria-label="${t('whose')}" style="align-self:flex-start">${people.map(m => `<button data-act="whose" data-u="${m.user_id}" aria-pressed="${m.user_id === who}">${esc(m.display_name || '—')}</button>`).join('')}</div>` : '';
   return `<main><div class="page-head"><div class="bar"><span class="eyebrow">${t('todayEyebrow')}</span>${langBtn()}</div>
-      <div class="daynav"><button class="ghost" data-act="dprev" aria-label="${t('prevDay')}">‹</button><h1>${esc(t('dayLabel', d))}</h1><button class="ghost" data-act="dnext" aria-label="${t('nextDay')}">›</button></div>
-      ${S.dayOff ? `<button class="linkish" data-act="dtoday">${t('today')}</button>` : ''}${syncLine()}</div>
+      <div class="seg tview" role="group" aria-label="${t('viewTrends')}">${['day', 'trends'].map(k => `<button data-act="tview" data-v="${k}" aria-pressed="${S.todayView === k}">${t(k === 'day' ? 'viewDay' : 'viewTrends')}</button>`).join('')}</div>
+      ${S.todayView === 'trends' ? '' : `<div class="daynav"><button class="ghost" data-act="dprev" aria-label="${t('prevDay')}">‹</button><h1>${esc(t('dayLabel', d))}</h1><button class="ghost" data-act="dnext" aria-label="${t('nextDay')}">›</button></div>
+      ${S.dayOff ? `<button class="linkish" data-act="dtoday">${t('today')}</button>` : ''}`}${syncLine()}</div>
     ${whoSeg}${!mine ? `<p class="muted">${esc(t('readOnly', name))}</p>` : ''}
-    ${summary}${mine ? healthCard(date) : ''}${meals}${mine ? logPanel(d, date) : ''}</main>`;
+    ${S.todayView === 'trends' ? viewTrends() : `${summary}${mine ? healthCard(date) : ''}${meals}${mine ? logPanel(d, date) : ''}`}</main>`;
 }
 
 function logPanel(d, date) {
@@ -1262,6 +1287,9 @@ function fitnessClick(a, b) {
   if (S.logForm && S.logForm.search && document.getElementById('l-sq')) S.search = { ...(S.search || {}), q: val('l-sq') };
   if (S.logForm && S.logForm.other) Object.assign(S.logForm, { name: val('l-name'), kcal: val('l-kcal'), p: val('l-p'), c: val('l-c'), fat: val('l-f'), keep: (document.getElementById('l-keep') || { checked: true }).checked });
   switch (a) {
+    case 'oconnect': case 'osync': case 'odisc': ouraClick(a); return true;
+    case 'tview': S.todayView = b.dataset.v; reset(); break;
+    case 'trange': S.trendRange = +b.dataset.n; break;
     case 'dprev': S.dayOff--; reset(); S.logMsg = ''; break;
     case 'dnext': S.dayOff++; reset(); S.logMsg = ''; break;
     case 'dtoday': S.dayOff = 0; reset(); S.logMsg = ''; break;
@@ -1456,6 +1484,159 @@ document.addEventListener('input', ev => {
   const pos = ev.target.selectionStart; render();
   const el = document.getElementById('l-g'); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (e) { /* number inputs */ } }
 });
+
+// ---- Oura link in Me ----
+S.oura = null; S.ouraMsg = '';
+(function readOuraReturn() {
+  try {
+    const q = new URLSearchParams(location.search), v = q.get('oura');
+    if (v) { S.ouraReturn = v; S.tab = 'me'; history.replaceState(null, '', location.pathname); }
+  } catch (e) { /* ignore */ }
+})();
+function ouraPanel() {
+  if (!Sync.enabled) return '';
+  const o = S.oura || {};
+  if (!S.oura) { S.oura = { loading: true }; Sync.rpc('oura_status').then(r => { S.oura = r.data || {}; render(); }); }
+  const back = S.ouraReturn ? `<p class="${S.ouraReturn === 'connected' ? 'sync' : 'err'}" role="status">${esc(T[LANG].ouraBack[S.ouraReturn] || '')}</p>` : '';
+  const err = S.ouraMsg ? `<p class="err" role="alert">${esc(S.ouraMsg)}</p>` : '';
+  const last = o.last_sync ? new Date(o.last_sync).toLocaleString(LANG === 'en' ? 'en-US' : 'zh-CN', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  return `<section class="panel"><span class="label">${t('ouraH')}</span>${back}
+    ${o.connected ? `<p class="muted">${esc(t('ouraOn', last))}</p>${o.last_error ? `<p class="err">${esc(t('ouraLastErr', o.last_error))}</p>` : ''}
+      <div class="chips"><button class="chip" data-act="osync" ${o.busy ? 'disabled' : ''}>${o.busy ? t('ouraSyncing') : t('ouraSync')}</button><button class="chip" data-act="odisc">${t('ouraDisc')}</button></div>`
+    : `<p class="muted">${t('ouraOff')}</p><button class="action" data-act="oconnect" style="align-self:flex-start" ${o.busy ? 'disabled' : ''}>${o.busy ? t('busy') : t('ouraConnect')}</button>`}${err}</section>`;
+}
+async function ouraClick(a) {
+  S.ouraMsg = ''; S.ouraReturn = '';
+  if (a === 'oconnect') {
+    S.oura = { ...(S.oura || {}), busy: true }; render();
+    const r = await Sync.invoke('oura-start', {});
+    if (r.url) { location.href = r.url; return; }
+    S.oura = { ...S.oura, busy: false }; S.ouraMsg = (T[LANG].ouraErr[r.error] || T[LANG].ouraErr.default); render();
+  }
+  if (a === 'osync') {
+    S.oura = { ...S.oura, busy: true }; render();
+    const r = await Sync.invoke('oura-sync', { days: 7 });
+    S.oura = null; if (r.error) S.ouraMsg = (T[LANG].ouraErr[r.error] || T[LANG].ouraErr.default);
+    render(); Sync.refresh && Sync.refresh();
+  }
+  if (a === 'odisc') { await Sync.rpc('oura_disconnect'); S.oura = null; render(); }
+}
+
+// ---- Trends: last 7 or 30 days, one small chart per measure (Phase 5d) ----
+// Single-series charts in the app's spice colour; goal shown as a dashed reference line.
+Object.assign(T.zh, {
+  viewDay: '今天', viewTrends: '趋势', range7: '7 天', range30: '30 天', avg: n => `平均 ${n}`, latest: n => `最近 ${n}`,
+  tKcal: '每天吃的热量', tProtein: '每天的蛋白质', tSteps: '步数', tActive: '活动消耗', tWeight: '体重', tSleepScore: '睡眠分（Oura）',
+  tReadiness: 'Readiness 准备度（Oura）', tHrv: 'HRV（Oura）', tRhr: '静息心率', tSleep: '睡眠时长', noData: '这段时间还没有数据。',
+  goalLine: n => `虚线是目标 ${n}`, tapHint: '点柱子或点看当天的数字。', ouraLater: '连上 Oura 后，这里会出现睡眠分、Readiness 和 HRV。',
+  daysLogged: (n, d) => `${d} 天里记了 ${n} 天`,
+});
+Object.assign(T.en, {
+  viewDay: 'Today', viewTrends: 'Trends', range7: '7 days', range30: '30 days', avg: n => `avg ${n}`, latest: n => `latest ${n}`,
+  tKcal: 'Calories eaten', tProtein: 'Protein', tSteps: 'Steps', tActive: 'Active energy', tWeight: 'Weight', tSleepScore: 'Sleep score (Oura)',
+  tReadiness: 'Readiness (Oura)', tHrv: 'HRV (Oura)', tRhr: 'Resting heart rate', tSleep: 'Sleep', noData: 'No data for this period yet.',
+  goalLine: n => `dashed line: goal ${n}`, tapHint: 'Tap a bar or point to see that day.', ouraLater: 'Once Oura is connected, sleep score, Readiness and HRV appear here.',
+  daysLogged: (n, d) => `logged ${n} of ${d} days`,
+});
+Object.assign(S, { todayView: 'day', trendRange: 7 });
+
+function trendDays(n) {
+  const out = [];
+  for (let i = n - 1; i >= 0; i--) out.push(dateAt(-i));
+  return out;
+}
+const fmtN = v => (Math.round(v) || 0).toLocaleString();
+const shortDay = d => LANG === 'en' ? d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) : `${d.getMonth() + 1}/${d.getDate()}`;
+
+// values: array of {d, v} with v null for no data. kind: 'bar' | 'line'
+function chart(id, values, { kind = 'bar', goal = null, unit = '', fmt = fmtN, connect = false }) {
+  const W = 340, H = 128, padL = 34, padR = 6, padT = 10, padB = 20;
+  const vals = values.map(x => x.v).filter(v => v !== null && v !== undefined);
+  if (!vals.length) return `<p class="muted">${t('noData')}</p>`;
+  let lo = kind === 'bar' ? 0 : Math.min(...vals), hi = Math.max(...vals, goal || 0);
+  if (kind === 'line') { const span = Math.max(hi - lo, 1); lo -= span * 0.25; hi += span * 0.25; if (lo < 0 && Math.min(...vals) >= 0) lo = 0; }
+  if (hi === lo) hi = lo + 1;
+  // tidy top tick
+  const step = Math.pow(10, Math.floor(Math.log10(hi - lo))) / (hi - lo < 3 * Math.pow(10, Math.floor(Math.log10(hi - lo))) ? 2 : 1);
+  hi = Math.ceil(hi / step) * step; if (kind === 'line') lo = Math.floor(lo / step) * step;
+  const n = values.length, iw = W - padL - padR, ih = H - padT - padB;
+  const x = i => padL + (i + 0.5) * iw / n, y = v => padT + ih - (v - lo) / (hi - lo) * ih;
+  const bw = Math.max(2, Math.min(18, iw / n - 2));
+  const ticks = [lo, (lo + hi) / 2, hi];
+  let marks = '';
+  if (kind === 'bar') {
+    marks = values.map((p, i) => p.v === null || p.v === undefined ? '' : (() => {
+      const top = y(p.v), h = Math.max(1, padT + ih - top), r = Math.min(4, bw / 2, h);
+      // rounded at the data end, square at the baseline
+      return `<path class="bar" d="M${x(i) - bw / 2},${padT + ih} v${-(h - r)} q0,${-r} ${r},${-r} h${bw - 2 * r} q${r},0 ${r},${r} v${h - r} z"/>`;
+    })()).join('');
+  } else {
+    let seg = '', pts = '';
+    values.forEach((p, i) => {
+      if (p.v === null || p.v === undefined) { if (!connect) seg += ' '; return; }
+      seg += (seg.trim() && !seg.endsWith(' ') ? ' L' : ' M') + `${x(i).toFixed(1)},${y(p.v).toFixed(1)}`;
+      pts += `<circle class="pt" cx="${x(i).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="4"/>`;
+    });
+    marks = `<path class="line" d="${seg.replace(/\s+/g, ' ').trim()}"/>${pts}`;
+  }
+  const hits = values.map((p, i) => `<rect class="hit" x="${(padL + i * iw / n).toFixed(1)}" y="${padT}" width="${(iw / n).toFixed(1)}" height="${ih + padB}" data-chart="${id}" data-tip="${esc(`${shortDay(p.d)}: ${p.v === null || p.v === undefined ? '–' : fmt(p.v) + (unit ? ' ' + unit : '')}`)}"/>`).join('');
+  const every = Math.ceil(n / 7);
+  const xl = values.map((p, i) => (i % every === (n - 1) % every) ? `<text class="xl" x="${x(i).toFixed(1)}" y="${H - 5}">${shortDay(p.d)}</text>` : '').join('');
+  const yl = ticks.map(v => `<line class="grid" x1="${padL}" x2="${W - padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/><text class="yl" x="${padL - 5}" y="${(y(v) + 3.5).toFixed(1)}">${fmt(v)}</text>`).join('');
+  const g = goal ? `<line class="goal" x1="${padL}" x2="${W - padR}" y1="${y(goal).toFixed(1)}" y2="${y(goal).toFixed(1)}"/>` : '';
+  return `<svg class="tchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(values.filter(p => p.v != null).map(p => `${shortDay(p.d)} ${fmt(p.v)}`).join(', '))}">${yl}${g}${marks}${xl}${hits}</svg>
+    <p class="tip" id="tip-${id}" aria-live="polite">&nbsp;</p>`;
+}
+
+function trendCard(id, title, values, opts = {}) {
+  const vals = values.map(x => x.v).filter(v => v !== null && v !== undefined);
+  const fmt = opts.fmt || fmtN, unit = opts.unit || '';
+  const head = !vals.length ? '' : opts.kind === 'line'
+    ? t('latest', `${fmt(vals[vals.length - 1])}${unit ? ' ' + unit : ''}`)
+    : t('avg', `${fmt(vals.reduce((a, b) => a + b, 0) / vals.length)}${unit ? ' ' + unit : ''}`);
+  return `<section class="panel tcard"><div class="thead"><span class="label">${title}</span><b>${head}</b></div>
+    ${chart(id, values, opts)}${opts.goal && vals.length ? `<p class="muted tnote">${t('goalLine', `${fmtN(opts.goal)}${unit ? ' ' + unit : ''}`)}</p>` : ''}${opts.note ? `<p class="muted tnote">${opts.note}</p>` : ''}</section>`;
+}
+
+function viewTrends() {
+  const who = S.whose || me(), mine = who === me(), days = trendDays(S.trendRange), g = S.goals[who] || {};
+  const daily = k => days.map(d => {
+    const rows = S.intake.filter(e => e.user === who && e.date === ymdOf(d));
+    return { d, v: rows.length ? rows.reduce((a, e) => a + (e[k] || 0), 0) : null };
+  });
+  const kcal = daily('kcal'), logged = kcal.filter(p => p.v !== null).length;
+  const hv = (src, k, f = v => v) => days.map(d => { const r = (S.health[ymdOf(d)] || {})[src]; return { d, v: r && r[k] != null ? f(r[k]) : null }; });
+  const pick = k => days.map(d => { const h = S.health[ymdOf(d)] || {}; const v = h.oura && h.oura[k] != null ? h.oura[k] : h.apple && h.apple[k] != null ? h.apple[k] : null; return { d, v }; });
+  const lb = v => Math.round(v / 0.45359237 * 10) / 10;
+  const oneDec = v => (Math.round(v * 10) / 10).toLocaleString();
+  const hrs = v => `${Math.floor(v / 60)}:${String(Math.round(v % 60)).padStart(2, '0')}`;
+  const hasOura = days.some(d => (S.health[ymdOf(d)] || {}).oura);
+  let cards = trendCard('kcal', t('tKcal'), kcal, { goal: g.kcal, unit: 'kcal', note: t('daysLogged', logged, S.trendRange) })
+    + trendCard('protein', t('tProtein'), daily('P'), { goal: g.protein, unit: 'g' });
+  if (mine) {
+    cards += trendCard('steps', t('tSteps'), hv('apple', 'steps'))
+      + trendCard('active', t('tActive'), hv('apple', 'active_kcal'), { unit: 'kcal' })
+      + trendCard('weight', t('tWeight'), hv('apple', 'weight_kg', lb), { kind: 'line', unit: 'lb', fmt: oneDec, connect: true })
+      + trendCard('rhr', t('tRhr'), pick('resting_hr'), { kind: 'line', unit: 'bpm' });
+    cards += hasOura
+      ? trendCard('sleepscore', t('tSleepScore'), hv('oura', 'sleep_score'), { kind: 'line' })
+        + trendCard('readiness', t('tReadiness'), hv('oura', 'readiness'), { kind: 'line' })
+        + trendCard('hrv', t('tHrv'), hv('oura', 'hrv_ms'), { kind: 'line', unit: 'ms' })
+        + trendCard('sleep', t('tSleep'), pick('sleep_min'), { kind: 'bar', fmt: hrs, unit: '' })
+      : `<p class="muted">${t('ouraLater')}</p>`;
+  }
+  return `<div class="seg" role="group" aria-label="${t('viewTrends')}" style="align-self:flex-start">${[7, 30].map(n => `<button data-act="trange" data-n="${n}" aria-pressed="${S.trendRange === n}">${t(n === 7 ? 'range7' : 'range30')}</button>`).join('')}</div>
+    <p class="muted">${t('tapHint')}</p>${cards}`;
+}
+
+// tooltips without re-rendering the page
+function showTip(el) {
+  const p = document.getElementById('tip-' + el.dataset.chart); if (!p) return;
+  p.textContent = el.dataset.tip;
+  el.closest('svg').querySelectorAll('.hit.on').forEach(h => h.classList.remove('on')); el.classList.add('on');
+}
+document.addEventListener('pointerover', ev => { if (ev.target.classList && ev.target.classList.contains('hit')) showTip(ev.target); });
+document.addEventListener('click', ev => { if (ev.target.classList && ev.target.classList.contains('hit')) { ev.stopPropagation(); showTip(ev.target); } }, true);
 
 render();
 Sync.init();
