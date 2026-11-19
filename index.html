@@ -176,6 +176,17 @@ details summary { cursor: pointer; font-weight: 700; font-size: 14px; color: var
 .steps.small li { font-size: 14px; }
 .check { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
 .check input { width: 20px; height: 20px; accent-color: var(--green); }
+.filepick { position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.filepick input { position: absolute; inset: 0; opacity: 0; }
+.filepick.busy { opacity: .7; }
+.chip svg { vertical-align: -3px; width: 16px; height: 16px; }
+.searchrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.searchrow .action { flex: none; min-height: 48px; }
+ul.dbres { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+ul.dbres button { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: none; padding: 11px 2px; }
+ul.dbres .nm small { display: block; color: var(--muted); font-size: 12.5px; }
+ul.dbres .q { font-weight: 800; white-space: nowrap; text-align: right; }
+ul.dbres .q small { display: block; font-weight: 500; color: var(--muted); font-size: 11.5px; }
 .bar { display: flex; align-items: center; gap: 12px; }
 .bar .back { margin-bottom: 0; }
 html[lang="en"] .card-title, html[lang="en"] .intro h1 { letter-spacing: -.01em; }
@@ -1049,6 +1060,9 @@ Object.assign(T.zh, {
   ahH: 'Apple Health 自动上传', ahNone: '还没有设置。生成一个上传码，再按下面的步骤在 iPhone 上建一个快捷指令。', ahHas: d => `上传码建于 ${d}。忘了的话可以重新生成，旧的会失效。`,
   ahGen: '生成上传码', ahRegen: '重新生成上传码', ahShown: '这个上传码只显示这一次，先复制到快捷指令里：', copy: '复制', copied: '已复制', ahUrl: '上传地址',
   ahSteps: '在 iPhone 上怎么设置', ahLast: d => `最近一次上传：${d}`,
+  dbSearch: '搜食物库', dbPh: '比如 鸡胸肉、豆浆、greek yogurt', dbGo: '搜', dbBusy: '搜索中…', dbNone: '没找到。换个说法，或者用英文搜（食物库是英文的）。', dbHint: '免费的美国农业部（USDA）和 Open Food Facts 食物库，英文搜结果最多。',
+  scan: '扫条形码', scanBusy: '在读条形码…', scanFail: '没读出条形码。拍近一点、对准条码再试，或者手动输入数字：', barNum: '条形码数字', barGo: '查', barNone: '这个条形码在库里没找到，可以手填。',
+  per100: '每 100 g', amount: '吃了多少（克）', oneServing: s => `1 份（${s}）`, g100: '100 g',
   foodsH: '常吃的', foodSearch: '搜常吃的', saveFood: '存到常吃的，下次直接选', removeFood: '从常吃里删掉', noFoods: '手填或拍照记过的食物会存在这里，下次点一下就能记。', perPortion: '每份',
   whose: '看谁的', readOnly: n => `${n} 的记录，只能看。`, macroShort: (p, c, f) => `蛋白 ${p} · 碳水 ${c} · 脂肪 ${f}`, partnerNoGoal: '还没设目标',
 });
@@ -1069,6 +1083,9 @@ Object.assign(T.en, {
   ahH: 'Apple Health upload', ahNone: 'Not set up yet. Create an upload code, then build a Shortcut on your iPhone with the steps below.', ahHas: d => `Upload code created ${d}. If you lose it, create a new one; the old one stops working.`,
   ahGen: 'Create upload code', ahRegen: 'Create a new upload code', ahShown: 'This code is shown only once. Copy it into the Shortcut now:', copy: 'Copy', copied: 'Copied', ahUrl: 'Upload address',
   ahSteps: 'How to set it up on iPhone', ahLast: d => `Last upload: ${d}`,
+  dbSearch: 'Search foods', dbPh: 'e.g. chicken breast, soy milk, greek yogurt', dbGo: 'Search', dbBusy: 'Searching\u2026', dbNone: 'Nothing found. Try other words; the database is in English.', dbHint: 'Free USDA and Open Food Facts databases; English searches find the most.',
+  scan: 'Scan a barcode', scanBusy: 'Reading the barcode\u2026', scanFail: 'Couldn\u2019t read a barcode. Get closer and centre it, or type the number:', barNum: 'Barcode number', barGo: 'Look up', barNone: 'That barcode isn\u2019t in the database. Enter it by hand instead.',
+  per100: 'per 100 g', amount: 'How much (grams)', oneServing: s => `1 serving (${s})`, g100: '100 g',
   foodsH: 'My foods', foodSearch: 'Search my foods', saveFood: 'Save to My foods for next time', removeFood: 'Remove from My foods', noFoods: 'Foods you enter by hand or from a photo are kept here, so next time it\u2019s one tap.', perPortion: 'per portion',
   whose: 'Whose log', readOnly: n => `${n}’s log, view only.`, macroShort: (p, c, f) => `P ${p} · C ${c} · F ${f} g`, partnerNoGoal: 'No goals yet',
 });
@@ -1156,7 +1173,23 @@ function logPanel(d, date) {
         `<label class="field"><span>${t(lab)}</span><input id="${id}" type="number" inputmode="decimal" min="0" value="${esc(f[k] || '')}"></label>`).join('')}</div>
       <label class="check"><input id="l-keep" type="checkbox" ${f.keep === false ? '' : 'checked'}> ${t('saveFood')}</label>
       <button class="action" data-act="lsave">${t('log')}</button>`;
-    else if (f.food) {
+    else if (f.search) {
+      const sr = S.search || {};
+      form = `<p class="muted">${t('dbHint')}</p><div class="searchrow"><label class="field"><span class="sr">${t('dbSearch')}</span><input id="l-sq" type="search" enterkeyhint="search" placeholder="${esc(t('dbPh'))}" value="${esc(sr.q || '')}"></label>
+        <button class="action" data-act="ldbgo" ${sr.busy ? 'disabled' : ''}>${sr.busy ? t('dbBusy') : t('dbGo')}</button></div>
+        ${f.scanFail ? `<p class="err">${t('scanFail')}</p><div class="searchrow"><label class="field"><span class="sr">${t('barNum')}</span><input id="l-bn" type="text" inputmode="numeric" placeholder="${t('barNum')}"></label><button class="action" data-act="lbargo">${t('barGo')}</button></div>` : ''}
+        ${sr.error ? `<p class="err">${esc(sr.error === 'not_found' ? t('barNone') : t('dbNone'))}</p>` : ''}
+        ${sr.results ? (sr.results.length ? `<ul class="dbres">${sr.results.map((x, i) => `<li><button data-act="ldbpick" data-i="${i}"><span class="nm">${esc(x.name)}${x.brand ? ` <small>${esc(x.brand)}</small>` : ''}</span>
+          <span class="q">${x.per100.kcal ?? '–'} kcal<small>${t('per100')}</small></span></button></li>`).join('')}</ul>` : `<p class="muted">${t('dbNone')}</p>`) : ''}`;
+    } else if (f.pick) {
+      const x = f.pick, g = +f.grams || 0, k = v => Math.round((v || 0) * g / 100);
+      form = `<p><b>${esc(x.name)}</b>${x.brand ? ` · ${esc(x.brand)}` : ''}</p>
+        <p class="muted">${t('per100')}: ${x.per100.kcal ?? '–'} kcal · ${t('macroShort', x.per100.P ?? '–', x.per100.C ?? '–', x.per100.F ?? '–')}</p>
+        ${segMeal}<label class="field"><span>${t('amount')}</span><input id="l-g" type="number" inputmode="decimal" min="1" value="${esc(f.grams)}"></label>
+        <div class="chips">${x.serving ? `<button class="chip" data-act="lgram" data-g="${x.serving.grams}">${esc(t('oneServing', x.serving.label))}</button>` : ''}<button class="chip" data-act="lgram" data-g="100">${t('g100')}</button></div>
+        <label class="check"><input id="l-keep" type="checkbox" ${f.keep === false ? '' : 'checked'}> ${t('saveFood')}</label>
+        <button class="action" data-act="lsave">${t('log')} · ${k(x.per100.kcal)} kcal · ${k(x.per100.P)} g ${t('protein')}</button>`;
+    } else if (f.food) {
       const x = S.foods.find(y => y.id === f.food) || {}, k = v => Math.round((v || 0) * f.portion);
       form = `${segMeal}<p class="muted">${esc(x.name)} · ${t('perPortion')} ${x.kcal} kcal · ${t('macroShort', x.P, x.C, x.F)}</p>
         <div class="row"><span class="label">${t('portion')}</span><div class="seg">${PORTIONS.map(p => `<button data-act="lport" data-p="${p}" aria-pressed="${f.portion === p}">${p}</button>`).join('')}</div></div>
@@ -1171,11 +1204,14 @@ function logPanel(d, date) {
   }
   const ph = S.photo || {};
   const photo = Sync.enabled
-    ? `<label class="action photo ${ph.busy ? 'busy' : ''}">${ICON.camera}<span>${ph.busy ? t('photoBusy') : t('photoBtn')}</span><input id="l-photo" type="file" accept="image/*" capture="environment" ${ph.busy ? 'disabled' : ''}></label>
-       ${ph.error ? `<p class="err" role="alert">${esc((T[LANG].photoErr)[ph.error] || T[LANG].photoErr.default)}</p>` : ''}`
+    ? (ph.error ? `<p class="err" role="alert">${esc((T[LANG].photoErr)[ph.error] || T[LANG].photoErr.default)}</p>` : '')
     : `<p class="muted">${t('photoLocal')}</p>`;
-  const formAfterPlan = f && f.recipe_id ? form : '', formAfterFoods = f && !f.recipe_id ? form : '';
-  return `<div class="section-title"><h2>${t('logTitle')}</h2></div><section class="panel">${photo}<span class="label">${t('fromPlan')}</span>${chips}${formAfterPlan}${foodBlock}${formAfterFoods}
+  const formAfterPlan = f && f.recipe_id ? form : '', formAfterFoods = f && !f.recipe_id && !f.search && !f.pick ? form : '';
+  const tools = Sync.enabled ? `<div class="chips"><button class="chip" data-act="lsearch" aria-pressed="${!!(f && f.search)}">${ICON.search} ${t('dbSearch')}</button>
+      <label class="chip filepick ${S.scan && S.scan.busy ? 'busy' : ''}">${ICON.barcode} ${S.scan && S.scan.busy ? t('scanBusy') : t('scan')}<input id="l-bar" type="file" accept="image/*" capture="environment"></label>
+      <label class="chip filepick ${ph.busy ? 'busy' : ''}">${ICON.camera} ${ph.busy ? t('photoBusy') : t('photoBtn')}<input id="l-photo" type="file" accept="image/*" capture="environment" ${ph.busy ? 'disabled' : ''}></label></div>` : '';
+  const formTop = f && (f.search || f.pick) ? form : '';
+  return `<div class="section-title"><h2>${t('logTitle')}</h2></div><section class="panel">${photo}${tools}${formTop}<span class="label">${t('fromPlan')}</span>${chips}${formAfterPlan}${foodBlock}${formAfterFoods}
     ${S.logMsg ? `<span class="toast" role="status">${esc(S.logMsg)}</span>` : ''}</section>`;
 }
 
@@ -1194,6 +1230,8 @@ function fitnessClick(a, b) {
   const date = ymdOf(dateAt(S.dayOff));
   const reset = () => { S.logForm = null; };
   // keep what was typed in the free-entry form when another button re-renders it
+  if (S.logForm && S.logForm.pick && document.getElementById('l-g')) { S.logForm.grams = val('l-g'); S.logForm.keep = document.getElementById('l-keep').checked; }
+  if (S.logForm && S.logForm.search && document.getElementById('l-sq')) S.search = { ...(S.search || {}), q: val('l-sq') };
   if (S.logForm && S.logForm.other) Object.assign(S.logForm, { name: val('l-name'), kcal: val('l-kcal'), p: val('l-p'), c: val('l-c'), fat: val('l-f'), keep: (document.getElementById('l-keep') || { checked: true }).checked });
   switch (a) {
     case 'dprev': S.dayOff--; reset(); S.logMsg = ''; break;
@@ -1202,6 +1240,11 @@ function fitnessClick(a, b) {
     case 'whose': S.whose = b.dataset.u; reset(); break;
     case 'lpick': S.logForm = { recipe_id: b.dataset.id, ver: b.dataset.v, portion: 1, meal: defaultMeal() }; S.logMsg = ''; break;
     case 'lother': S.logForm = { other: true, meal: defaultMeal() }; S.logMsg = ''; break;
+    case 'lsearch': S.logForm = { search: true, meal: (S.logForm && S.logForm.meal) || defaultMeal() }; S.logMsg = ''; setTimeout(() => { const el = document.getElementById('l-sq'); if (el) el.focus(); }, 0); break;
+    case 'ldbgo': { const q = (S.search && S.search.q || '').trim(); if (q) dbSearch({ q }); return true; }
+    case 'lbargo': { const n = val('l-bn').replace(/\D/g, ''); if (n) dbSearch({ barcode: n }); return true; }
+    case 'ldbpick': { const x = S.search.results[+b.dataset.i]; S.logForm = { pick: x, grams: x.serving ? x.serving.grams : 100, meal: S.logForm.meal || defaultMeal() }; break; }
+    case 'lgram': S.logForm.grams = b.dataset.g; break;
     case 'lfood': S.logForm = { food: b.dataset.id, portion: 1, meal: (S.logForm && S.logForm.meal) || defaultMeal() }; S.logMsg = ''; break;
     case 'lfdel': { const id = S.logForm.food; S.foods = S.foods.filter(x => x.id !== id); Sync.op('food_delete', id); reset(); break; }
     case 'lmeal': S.logForm.meal = b.dataset.m; break;
@@ -1218,6 +1261,17 @@ function fitnessClick(a, b) {
           const old = S.foods.find(x => x.name.toLowerCase() === label.toLowerCase());
           const food = { id: old ? old.id : Sync.newId(), name: label, kcal, P, C, F, uses: (old ? old.uses : 0) + 1, last_used: new Date().toISOString() };
           S.foods = [...S.foods.filter(x => x !== old), food]; Sync.op('food_upsert', food);
+        }
+      } else if (f.pick) {
+        const x = f.pick, g = +val('l-g') || 0; if (!(g > 0)) return true;
+        const k = v => Math.round((v || 0) * g / 100);
+        const label = `${x.name}${x.brand ? ` (${x.brand})` : ''}`.slice(0, 90);
+        const e = { uid: Sync.newId(), user: me(), date, meal: f.meal, recipe_id: null, ver: null, portion: 1, label: `${label} · ${Math.round(g)} g`, kcal: k(x.per100.kcal), P: k(x.per100.P), C: k(x.per100.C), F: k(x.per100.F) };
+        addEntry(e);
+        if (document.getElementById('l-keep').checked) {
+          const name = `${label} · ${Math.round(g)} g`, old = S.foods.find(y => y.name.toLowerCase() === name.toLowerCase());
+          const food = { id: old ? old.id : Sync.newId(), name, kcal: e.kcal, P: e.P, C: e.C, F: e.F, uses: (old ? old.uses : 0) + 1, last_used: new Date().toISOString() };
+          S.foods = [...S.foods.filter(y => y !== old), food]; Sync.op('food_upsert', food);
         }
       } else if (f.food) {
         const x = S.foods.find(y => y.id === f.food); if (!x) return true;
@@ -1243,7 +1297,7 @@ function fitnessClick(a, b) {
   persistFit(); render(); return true;
 }
 
-ICON.camera = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.6-2.4h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.6"/></svg>';
+ICON.camera = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.6-2.4h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.6"/></svg>';
 
 // ---- photo estimate: shrink the photo on the phone, send it, prefill the manual form ----
 async function shrinkPhoto(file) {
@@ -1322,6 +1376,57 @@ document.addEventListener('input', ev => {
   if (ev.target.id !== 'l-fq') return;
   S.foodQ = ev.target.value; const pos = ev.target.selectionStart; render();
   const el = document.getElementById('l-fq'); if (el) { el.focus(); el.setSelectionRange(pos, pos); }
+});
+
+ICON.barcode = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6v12M7 6v12M10 6v12M14 6v12M16 6v12M20 6v12"/></svg>';
+
+// ---- free food database search and barcode lookup ----
+async function dbSearch(body) {
+  S.search = { ...(S.search || {}), busy: true, error: '', results: null }; render();
+  const res = await Sync.invoke('food-search', { ...body, lang: LANG });
+  S.search = { ...S.search, busy: false, results: res.results || [], error: res.error && res.error !== 'not_signed_in' ? res.error : (res.results && res.results.length ? '' : (body.barcode ? 'not_found' : '')) };
+  if (body.barcode && res.results && res.results[0]) { const x = res.results[0]; S.logForm = { pick: x, grams: x.serving ? x.serving.grams : 100, meal: (S.logForm && S.logForm.meal) || defaultMeal() }; }
+  render();
+}
+let zxingLoading = null;
+function loadZxing() {
+  if (window.ZXing) return Promise.resolve();
+  return zxingLoading || (zxingLoading = new Promise((ok, no) => {
+    const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js'; s.onload = ok; s.onerror = no; document.head.appendChild(s);
+  }));
+}
+async function readBarcode(file) {
+  // the phone's own detector when it has one (Android Chrome), otherwise the ZXing library (iPhone)
+  if ('BarcodeDetector' in window) {
+    try { const bmp = await createImageBitmap(file); const r = await new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] }).detect(bmp); if (r[0]) return r[0].rawValue; } catch (e) { /* fall through */ }
+  }
+  await loadZxing();
+  const url = URL.createObjectURL(file);
+  try {
+    const hints = new Map(); hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    const res = await new ZXing.BrowserMultiFormatReader(hints).decodeFromImageUrl(url);
+    return res && res.getText();
+  } catch (e) { return null; } finally { URL.revokeObjectURL(url); }
+}
+document.addEventListener('change', async ev => {
+  if (ev.target.id !== 'l-bar' || !ev.target.files || !ev.target.files[0]) return;
+  ev.stopImmediatePropagation();
+  const file = ev.target.files[0];
+  S.scan = { busy: true }; render();
+  let code = null; try { code = await readBarcode(file); } catch (e) { code = null; }
+  S.scan = null;
+  S.logForm = { search: true, meal: (S.logForm && S.logForm.meal) || defaultMeal(), scanFail: !code };
+  if (code) dbSearch({ barcode: code }); else render();
+}, true);
+document.addEventListener('keydown', ev => {
+  if (ev.key === 'Enter' && ev.target.id === 'l-sq') { ev.preventDefault(); S.search = { ...(S.search || {}), q: ev.target.value }; const q = ev.target.value.trim(); if (q) dbSearch({ q }); }
+});
+// update the total live while typing grams
+document.addEventListener('input', ev => {
+  if (ev.target.id !== 'l-g' || !S.logForm || !S.logForm.pick) return;
+  S.logForm.grams = ev.target.value; const keep = document.getElementById('l-keep'); if (keep) S.logForm.keep = keep.checked;
+  const pos = ev.target.selectionStart; render();
+  const el = document.getElementById('l-g'); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (e) { /* number inputs */ } }
 });
 
 render();
