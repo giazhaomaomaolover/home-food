@@ -997,7 +997,9 @@ function viewMe() {
       ${z.pwMsg ? `<span class="toast" role="status">${t('pwChanged')}</span>` : ''}${errText(z.error)}</section>
     <p class="muted">${esc(z.user.email || '')}</p><button class="ghost" data-act="a-out" style="align-self:flex-start">${t('signOut')}</button>`
     : `<p class="muted">${t('localOnly')}</p>`;
-  return `<main><div class="page-head"><div class="bar"><span class="eyebrow">${t('meEyebrow')}</span>${langBtn()}</div><h1>${t('meH')}</h1></div>${goalsPanel()}${healthPanel()}${ouraPanel()}${acct}</main>`;
+  const seg = `<div class="seg" role="group" aria-label="${t('meH')}" style="align-self:flex-start">${['trends', 'settings'].map(k => `<button data-act="meview" data-v="${k}" aria-pressed="${S.meView === k}">${t(k === 'trends' ? 'viewTrends' : 'viewSettings')}</button>`).join('')}</div>`;
+  return `<main><div class="page-head"><div class="bar"><span class="eyebrow">${t('meEyebrow')}</span>${langBtn()}</div><h1>${t('meH')}</h1></div>${seg}
+    ${S.meView === 'settings' ? `${goalsPanel()}${healthPanel()}${ouraPanel()}${acct}` : viewTrends()}</main>`;
 }
 function planInRange() { return S.plan.filter(e => S.range === 'week' || (S.range === 'weekday' ? e.day < 5 : e.day >= 5)); }
 function viewShop() {
@@ -1046,7 +1048,7 @@ document.addEventListener('click', ev => {
   const toTop = a === 'open' || a === 'back' || a === 'tab';
   if (a === 'open') { const r = byId(b.dataset.id); S.tab = 'cook'; S.recipe = r.id; S.ver = pickVer(r); S.servings = 2; S.addedDay = null; S.logged = null; }
   if (a === 'back') S.recipe = null;
-  if (a === 'tab') { S.logMsg = ''; S.tab = b.dataset.t; if (S.tab === 'cook') S.recipe = null; }
+  if (a === 'tab') { S.logMsg = ''; if (b.dataset.t === 'me') S.meView = b.classList.contains('linkish') ? 'settings' : 'trends'; S.tab = b.dataset.t; if (S.tab === 'cook') S.recipe = null; }
   if (a === 'cuisine') S.cuisine = b.dataset.c;
   if (a === 'rtype') S.rtype = b.dataset.t;
   if (a === 'nut') S.nut[b.dataset.k] = !S.nut[b.dataset.k];
@@ -1198,11 +1200,10 @@ function viewToday() {
   }).join('') || `<p class="empty">${t('nothing')}</p>`;
   const whoSeg = people ? `<div class="seg" role="group" aria-label="${t('whose')}" style="align-self:flex-start">${people.map(m => `<button data-act="whose" data-u="${m.user_id}" aria-pressed="${m.user_id === who}">${esc(m.display_name || '—')}</button>`).join('')}</div>` : '';
   return `<main><div class="page-head"><div class="bar"><span class="eyebrow">${t('todayEyebrow')}</span>${langBtn()}</div>
-      <div class="seg tview" role="group" aria-label="${t('viewTrends')}">${['day', 'trends'].map(k => `<button data-act="tview" data-v="${k}" aria-pressed="${S.todayView === k}">${t(k === 'day' ? 'viewDay' : 'viewTrends')}</button>`).join('')}</div>
-      ${S.todayView === 'trends' ? '' : `<div class="daynav"><button class="ghost" data-act="dprev" aria-label="${t('prevDay')}">‹</button><h1>${esc(t('dayLabel', d))}</h1><button class="ghost" data-act="dnext" aria-label="${t('nextDay')}">›</button></div>
-      ${S.dayOff ? `<button class="linkish" data-act="dtoday">${t('today')}</button>` : ''}`}${syncLine()}</div>
+      <div class="daynav"><button class="ghost" data-act="dprev" aria-label="${t('prevDay')}">‹</button><h1>${esc(t('dayLabel', d))}</h1><button class="ghost" data-act="dnext" aria-label="${t('nextDay')}">›</button></div>
+      ${S.dayOff ? `<button class="linkish" data-act="dtoday">${t('today')}</button>` : ''}${syncLine()}</div>
     ${whoSeg}${!mine ? `<p class="muted">${esc(t('readOnly', name))}</p>` : ''}
-    ${S.todayView === 'trends' ? viewTrends() : `${summary}${mine ? healthCard(date) : ''}${meals}${mine ? logPanel(d, date) : ''}`}</main>`;
+    ${summary}${mine ? healthCard(date) : ''}${meals}${mine ? logPanel(d, date) : ''}</main>`;
 }
 
 function logPanel(d, date) {
@@ -1288,7 +1289,7 @@ function fitnessClick(a, b) {
   if (S.logForm && S.logForm.other) Object.assign(S.logForm, { name: val('l-name'), kcal: val('l-kcal'), p: val('l-p'), c: val('l-c'), fat: val('l-f'), keep: (document.getElementById('l-keep') || { checked: true }).checked });
   switch (a) {
     case 'oconnect': case 'osync': case 'odisc': ouraClick(a); return true;
-    case 'tview': S.todayView = b.dataset.v; reset(); break;
+    case 'meview': S.meView = b.dataset.v; break;
     case 'trange': S.trendRange = +b.dataset.n; break;
     case 'dprev': S.dayOff--; reset(); S.logMsg = ''; break;
     case 'dnext': S.dayOff++; reset(); S.logMsg = ''; break;
@@ -1490,7 +1491,7 @@ S.oura = null; S.ouraMsg = '';
 (function readOuraReturn() {
   try {
     const q = new URLSearchParams(location.search), v = q.get('oura');
-    if (v) { S.ouraReturn = v; S.tab = 'me'; history.replaceState(null, '', location.pathname); }
+    if (v) { S.ouraReturn = v; S.tab = 'me'; S.meView = 'settings'; history.replaceState(null, '', location.pathname); }
   } catch (e) { /* ignore */ }
 })();
 function ouraPanel() {
@@ -1525,20 +1526,20 @@ async function ouraClick(a) {
 // ---- Trends: last 7 or 30 days, one small chart per measure (Phase 5d) ----
 // Single-series charts in the app's spice colour; goal shown as a dashed reference line.
 Object.assign(T.zh, {
-  viewDay: '今天', viewTrends: '趋势', range7: '7 天', range30: '30 天', avg: n => `平均 ${n}`, latest: n => `最近 ${n}`,
+  viewDay: '今天', viewTrends: '趋势', viewSettings: '设置', range7: '7 天', range30: '30 天', avg: n => `平均 ${n}`, latest: n => `最近 ${n}`,
   tKcal: '每天吃的热量', tProtein: '每天的蛋白质', tSteps: '步数', tActive: '活动消耗', tWeight: '体重', tSleepScore: '睡眠分（Oura）',
   tReadiness: 'Readiness 准备度（Oura）', tHrv: 'HRV（Oura）', tRhr: '静息心率', tSleep: '睡眠时长', noData: '这段时间还没有数据。',
   goalLine: n => `虚线是目标 ${n}`, tapHint: '点柱子或点看当天的数字。', ouraLater: '连上 Oura 后，这里会出现睡眠分、Readiness 和 HRV。',
   daysLogged: (n, d) => `${d} 天里记了 ${n} 天`,
 });
 Object.assign(T.en, {
-  viewDay: 'Today', viewTrends: 'Trends', range7: '7 days', range30: '30 days', avg: n => `avg ${n}`, latest: n => `latest ${n}`,
+  viewDay: 'Today', viewTrends: 'Trends', viewSettings: 'Settings', range7: '7 days', range30: '30 days', avg: n => `avg ${n}`, latest: n => `latest ${n}`,
   tKcal: 'Calories eaten', tProtein: 'Protein', tSteps: 'Steps', tActive: 'Active energy', tWeight: 'Weight', tSleepScore: 'Sleep score (Oura)',
   tReadiness: 'Readiness (Oura)', tHrv: 'HRV (Oura)', tRhr: 'Resting heart rate', tSleep: 'Sleep', noData: 'No data for this period yet.',
   goalLine: n => `dashed line: goal ${n}`, tapHint: 'Tap a bar or point to see that day.', ouraLater: 'Once Oura is connected, sleep score, Readiness and HRV appear here.',
   daysLogged: (n, d) => `logged ${n} of ${d} days`,
 });
-Object.assign(S, { todayView: 'day', trendRange: 7 });
+Object.assign(S, { meView: 'trends', trendRange: 7 });
 
 function trendDays(n) {
   const out = [];
@@ -1625,7 +1626,9 @@ function viewTrends() {
         + trendCard('sleep', t('tSleep'), pick('sleep_min'), { kind: 'bar', fmt: hrs, unit: '' })
       : `<p class="muted">${t('ouraLater')}</p>`;
   }
-  return `<div class="seg" role="group" aria-label="${t('viewTrends')}" style="align-self:flex-start">${[7, 30].map(n => `<button data-act="trange" data-n="${n}" aria-pressed="${S.trendRange === n}">${t(n === 7 ? 'range7' : 'range30')}</button>`).join('')}</div>
+  const people = Sync.enabled && Sync.st.members.length > 1 ? Sync.st.members : null;
+  const whoSeg = people ? `<div class="seg" role="group" aria-label="${t('whose')}" style="align-self:flex-start">${people.map(m => `<button data-act="whose" data-u="${m.user_id}" aria-pressed="${m.user_id === who}">${esc(m.display_name || '—')}</button>`).join('')}</div>` : '';
+  return `${whoSeg}<div class="seg" role="group" aria-label="${t('viewTrends')}" style="align-self:flex-start">${[7, 30].map(n => `<button data-act="trange" data-n="${n}" aria-pressed="${S.trendRange === n}">${t(n === 7 ? 'range7' : 'range30')}</button>`).join('')}</div>
     <p class="muted">${t('tapHint')}</p>${cards}`;
 }
 
