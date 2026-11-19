@@ -692,7 +692,7 @@ const Sync = (() => {
     if (type === 'plan_delete') return sb.from('plan_entries').delete().eq('id', p);
     if (type === 'check_add') return sb.from('shopping_checks').upsert({ household_id: h, week_start: week, item_key: p });
     if (type === 'check_del') return sb.from('shopping_checks').delete().match({ household_id: h, week_start: week, item_key: p });
-    if (type === 'intake_upsert') return sb.from('intake_logs').upsert({ id: p.uid, user_id: me, eaten_on: p.date, meal: p.meal, recipe_id: p.recipe_id, ver: p.ver, portion: p.portion, label: p.label || null, kcal: p.kcal, protein_g: p.P, carbs_g: p.C, fat_g: p.F, updated_at: new Date().toISOString() });
+    if (type === 'intake_upsert') return sb.from('intake_logs').upsert({ id: p.uid, user_id: p.user || me, created_by: me, eaten_on: p.date, meal: p.meal, recipe_id: p.recipe_id, ver: p.ver, portion: p.portion, label: p.label || null, kcal: p.kcal, protein_g: p.P, carbs_g: p.C, fat_g: p.F, updated_at: new Date().toISOString() });
     if (type === 'intake_delete') return sb.from('intake_logs').delete().eq('id', p);
     if (type === 'goals_save') return sb.from('members').update({ kcal_goal: p.kcal, protein_goal: p.protein }).eq('user_id', me);
     if (type === 'food_upsert') return sb.from('saved_foods').upsert({ id: p.id, household_id: h, name: p.name, kcal: p.kcal, protein_g: p.P, carbs_g: p.C, fat_g: p.F, uses: p.uses, last_used: p.last_used });
@@ -1113,6 +1113,7 @@ Object.assign(T.zh, {
   ouraSync: '现在同步', ouraSyncing: '同步中…', ouraDisc: '断开 Oura', ouraErr: { not_configured: 'Oura 的 Client ID 和 Secret 还没加到 Supabase（见 Claude 的说明）。', default: '没连上，再试一次。' },
   ouraBack: { connected: 'Oura 已连接，最近 30 天的数据正在同步。', cancelled: '你取消了 Oura 授权。', expired: '授权超时了，再点一次「连接 Oura」。', failed: 'Oura 授权没成功，再试一次。' },
   ouraLastErr: e => `上次同步出错：${e}`,
+  alsoFor: n => `同时给 ${n} 记一份`, loggedBoth: n => `已记到你和 ${n} 今天的饮食里。`,
   foodsH: '常吃的', foodSearch: '搜常吃的', saveFood: '存到常吃的，下次直接选', removeFood: '从常吃里删掉', noFoods: '手填或拍照记过的食物会存在这里，下次点一下就能记。', perPortion: '每份',
   whose: '看谁的', readOnly: n => `${n} 的记录，只能看。`, macroShort: (p, c, f) => `蛋白 ${p} · 碳水 ${c} · 脂肪 ${f}`, partnerNoGoal: '还没设目标',
 });
@@ -1140,6 +1141,7 @@ Object.assign(T.en, {
   ouraSync: 'Sync now', ouraSyncing: 'Syncing\u2026', ouraDisc: 'Disconnect Oura', ouraErr: { not_configured: 'The Oura Client ID and Secret haven\u2019t been added to Supabase yet.', default: 'Couldn\u2019t connect. Try again.' },
   ouraBack: { connected: 'Oura connected; the last 30 days are syncing.', cancelled: 'You cancelled the Oura sign-in.', expired: 'The sign-in timed out. Tap Connect Oura again.', failed: 'The Oura sign-in didn\u2019t work. Try again.' },
   ouraLastErr: e => `Last sync error: ${e}`,
+  alsoFor: n => `Also log it for ${n}`, loggedBoth: n => `Logged for you and ${n}.`,
   foodsH: 'My foods', foodSearch: 'Search my foods', saveFood: 'Save to My foods for next time', removeFood: 'Remove from My foods', noFoods: 'Foods you enter by hand or from a photo are kept here, so next time it\u2019s one tap.', perPortion: 'per portion',
   whose: 'Whose log', readOnly: n => `${n}’s log, view only.`, macroShort: (p, c, f) => `P ${p} · C ${c} · F ${f} g`, partnerNoGoal: 'No goals yet',
 });
@@ -1151,6 +1153,7 @@ const PORTIONS = [0.5, 1, 1.5, 2];
 S.intake = load('intake', []);
 S.goals = load('goals', {});          // { [user]: { kcal, protein } }
 S.foods = load('foods', []);
+S.alsoPartner = load('alsoPartner', false);
 Object.assign(S, { foodQ: '', dayOff: 0, whose: null, logForm: null, logMsg: '', photo: null, ingest: null, health: load('health', {}) });
 const persistFit = () => { save('intake', S.intake); save('goals', S.goals); save('foods', S.foods); };
 
@@ -1168,7 +1171,13 @@ function recipeEntry(r, ver, portion, meal, date) {
   const k = x => Math.round(mid(x) * portion);
   return { uid: Sync.newId(), user: me(), date, meal, recipe_id: r.id, ver: r.versions[ver] ? ver : 'orig', portion, label: '', kcal: k(n.kcal), P: k(n.P), C: k(n.C), F: k(n.F) };
 }
-function addEntry(e) { S.intake.push(e); persistFit(); Sync.op('intake_upsert', e); }
+function partner() { return Sync.enabled && Sync.st.user ? Sync.st.members.find(m => m.user_id !== Sync.st.user.id) : null; }
+function addEntry(e, single) {
+  S.intake.push(e); persistFit(); Sync.op('intake_upsert', e);
+  const p = partner();
+  if (!single && S.alsoPartner && p) { const copy = { ...e, uid: Sync.newId(), user: p.user_id }; S.intake.push(copy); persistFit(); Sync.op('intake_upsert', copy); return p.display_name || ''; }
+  return null;
+}
 function entryTitle(e) {
   if (!e.recipe_id) return e.label;
   const r = byId(e.recipe_id); if (!r) return e.label || e.recipe_id;
@@ -1265,7 +1274,9 @@ function logPanel(d, date) {
       <label class="chip filepick ${S.scan && S.scan.busy ? 'busy' : ''}">${ICON.barcode} ${S.scan && S.scan.busy ? t('scanBusy') : t('scan')}<input id="l-bar" type="file" accept="image/*" capture="environment"></label>
       <label class="chip filepick ${ph.busy ? 'busy' : ''}">${ICON.camera} ${ph.busy ? t('photoBusy') : t('photoBtn')}<input id="l-photo" type="file" accept="image/*" capture="environment" ${ph.busy ? 'disabled' : ''}></label></div>` : '';
   const formTop = f && (f.search || f.pick) ? form : '';
-  return `<div class="section-title"><h2>${t('logTitle')}</h2></div><section class="panel">${photo}${tools}${formTop}<span class="label">${t('fromPlan')}</span>${chips}${formAfterPlan}${foodBlock}${formAfterFoods}
+  const pp = partner();
+  const also = pp ? `<label class="check"><input id="l-also" type="checkbox" data-act="lalso" ${S.alsoPartner ? 'checked' : ''}> ${esc(t('alsoFor', pp.display_name || '—'))}</label>` : '';
+  return `<div class="section-title"><h2>${t('logTitle')}</h2></div><section class="panel">${photo}${tools}${also}${formTop}<span class="label">${t('fromPlan')}</span>${chips}${formAfterPlan}${foodBlock}${formAfterFoods}
     ${S.logMsg ? `<span class="toast" role="status">${esc(S.logMsg)}</span>` : ''}</section>`;
 }
 
@@ -1289,6 +1300,7 @@ function fitnessClick(a, b) {
   if (S.logForm && S.logForm.other) Object.assign(S.logForm, { name: val('l-name'), kcal: val('l-kcal'), p: val('l-p'), c: val('l-c'), fat: val('l-f'), keep: (document.getElementById('l-keep') || { checked: true }).checked });
   switch (a) {
     case 'oconnect': case 'osync': case 'odisc': ouraClick(a); return true;
+    case 'lalso': S.alsoPartner = !!b.checked; save('alsoPartner', S.alsoPartner); return true;
     case 'meview': S.meView = b.dataset.v; break;
     case 'trange': S.trendRange = +b.dataset.n; break;
     case 'dprev': S.dayOff--; reset(); S.logMsg = ''; break;
@@ -1336,7 +1348,7 @@ function fitnessClick(a, b) {
         addEntry({ uid: Sync.newId(), user: me(), date, meal: f.meal, recipe_id: null, ver: null, portion: f.portion, label: x.name, kcal: k(x.kcal), P: k(x.P), C: k(x.C), F: k(x.F) });
         x.uses += 1; x.last_used = new Date().toISOString(); Sync.op('food_upsert', x);
       } else addEntry(recipeEntry(byId(f.recipe_id), f.ver, f.portion, f.meal, date));
-      reset(); S.logMsg = t('logged'); break;
+      reset(); S.logMsg = S.alsoPartner && partner() ? t('loggedBoth', partner().display_name || '') : t('logged'); break;
     }
     case 'ldel': { const i = S.intake.findIndex(e => e.uid === b.dataset.u); if (i >= 0) { S.intake.splice(i, 1); persistFit(); Sync.op('intake_delete', b.dataset.u); } break; }
     case 'gsave': {
