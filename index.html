@@ -170,6 +170,7 @@ ul.log .q small { display: block; font-weight: 500; color: var(--muted); font-si
 .hgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; }
 .hgrid div { display: flex; flex-direction: column; }
 .hgrid b { font-size: 18px; }
+.hgrid b small { font-size: 12px; font-weight: 600; color: var(--muted); }
 .hgrid span { font-size: 12px; color: var(--muted); font-weight: 600; }
 code.tok { display: block; word-break: break-all; background: var(--wash); border-radius: 6px; padding: 8px 10px; font-size: 13px; }
 details summary { cursor: pointer; font-weight: 700; font-size: 14px; color: var(--spice-deep); }
@@ -1360,7 +1361,7 @@ function healthCard(date) {
   add(t('activeKcal'), a.active_kcal != null ? `${a.active_kcal} kcal` : null);
   add(t('exercise'), a.exercise_min != null ? t('minutes', a.exercise_min) : null);
   add(t('restingHr'), a.resting_hr != null ? `${a.resting_hr} bpm` : null);
-  add(t('weight'), a.weight_kg != null ? `${a.weight_kg} kg` : null);
+  add(t('weight'), a.weight_kg != null ? `${Math.round(a.weight_kg / 0.45359237)} lb <small>${a.weight_kg} kg</small>` : null);
   add(t('sleep'), a.sleep_min != null ? t('hrsMin', Math.floor(a.sleep_min / 60), a.sleep_min % 60) : null);
   add(t('readiness'), o.readiness); add(t('sleepScore'), o.sleep_score); add(t('hrv'), o.hrv_ms != null ? `${o.hrv_ms} ms` : null);
   return `<section class="panel"><span class="label">${t('healthH')}</span>${cells.length ? `<div class="hgrid">${cells.join('')}</div>`
