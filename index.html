@@ -174,6 +174,8 @@ ul.log .q small { display: block; font-weight: 500; color: var(--muted); font-si
 code.tok { display: block; word-break: break-all; background: var(--wash); border-radius: 6px; padding: 8px 10px; font-size: 13px; }
 details summary { cursor: pointer; font-weight: 700; font-size: 14px; color: var(--spice-deep); }
 .steps.small li { font-size: 14px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.check input { width: 20px; height: 20px; accent-color: var(--green); }
 .bar { display: flex; align-items: center; gap: 12px; }
 .bar .back { margin-bottom: 0; }
 html[lang="en"] .card-title, html[lang="en"] .intro h1 { letter-spacing: -.01em; }
@@ -586,7 +588,7 @@ const Sync = (() => {
     if (error) return fail(error);
     clearLocal(); await afterLogin(st.user);
   }
-  function clearLocal() { S.plan = []; S.checked = {}; S.saved = {}; S.intake = []; S.goals = {}; S.health = {}; setOutbox([]); persist(); save('intake', []); save('goals', {}); save('health', {}); }
+  function clearLocal() { S.plan = []; S.checked = {}; S.saved = {}; S.intake = []; S.goals = {}; S.health = {}; S.foods = []; save('foods', []); setOutbox([]); persist(); save('intake', []); save('goals', {}); save('health', {}); }
 
   async function signOut() {
     if (channel) { sb.removeChannel(channel); channel = null; }
@@ -600,15 +602,16 @@ const Sync = (() => {
     if (!enabled || st.stage !== 'ready' || outbox().length) return;
     const h = st.household.id, wk = weekStart();
     const since = new Date(); since.setDate(since.getDate() - 35);
-    const [plan, checks, favs, mem, health, intake] = await Promise.all([
+    const [plan, checks, favs, mem, health, foods, intake] = await Promise.all([
       sb.from('plan_entries').select('id, day, recipe_id, ver, servings').eq('household_id', h).eq('week_start', wk).order('updated_at'),
       sb.from('shopping_checks').select('item_key').eq('household_id', h).eq('week_start', wk),
       sb.from('favorites').select('user_id, recipe_id'),
       sb.from('members').select('user_id, display_name, kcal_goal, protein_goal').eq('household_id', h),
       sb.from('health_daily').select('day, source, steps, active_kcal, resting_hr, weight_kg, exercise_min, sleep_min, sleep_score, readiness, hrv_ms').eq('user_id', st.user.id).gte('day', ymd(since)),
+      sb.from('saved_foods').select('id, name, kcal, protein_g, carbs_g, fat_g, uses, last_used').eq('household_id', h),
       sb.from('intake_logs').select('id, user_id, eaten_on, meal, recipe_id, ver, portion, label, kcal, protein_g, carbs_g, fat_g').gte('eaten_on', ymd(since)).order('created_at'),
     ]);
-    const err = plan.error || checks.error || favs.error || mem.error || intake.error || health.error;
+    const err = plan.error || checks.error || favs.error || mem.error || intake.error || health.error || foods.error;
     if (err) { st.status = 'offline'; rerender(); return; }
     S.plan = plan.data.filter(r => RECIPES.some(x => x.id === r.recipe_id)).map(r => ({ uid: r.id, id: r.recipe_id, ver: r.ver, servings: r.servings, day: r.day }));
     S.checked = Object.fromEntries(checks.data.map(r => [r.item_key, true]));
@@ -617,6 +620,8 @@ const Sync = (() => {
     S.saved = Object.fromEntries(favs.data.filter(r => r.user_id === me).map(r => [r.recipe_id, true]));
     S.goals = Object.fromEntries(mem.data.map(m => [m.user_id, { kcal: m.kcal_goal, protein: m.protein_goal }]));
     S.intake = intake.data.map(r => ({ uid: r.id, user: r.user_id, date: r.eaten_on, meal: r.meal, recipe_id: r.recipe_id, ver: r.ver, portion: +r.portion, label: r.label || '', kcal: r.kcal || 0, P: r.protein_g || 0, C: r.carbs_g || 0, F: r.fat_g || 0 }));
+    S.foods = foods.data.map(r => ({ id: r.id, name: r.name, kcal: r.kcal, P: r.protein_g, C: r.carbs_g, F: r.fat_g, uses: r.uses, last_used: r.last_used }));
+    save('foods', S.foods);
     S.health = {};
     health.data.forEach(r => { (S.health[r.day] = S.health[r.day] || {})[r.source] = r; });
     save('intake', S.intake); save('goals', S.goals); save('health', S.health);
@@ -633,6 +638,7 @@ const Sync = (() => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shopping_checks', filter: f }, schedulePull)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'intake_logs' }, schedulePull)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'health_daily' }, schedulePull)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'saved_foods', filter: f }, schedulePull)
       .subscribe();
   }
 
@@ -651,6 +657,8 @@ const Sync = (() => {
     if (type === 'intake_upsert') return sb.from('intake_logs').upsert({ id: p.uid, user_id: me, eaten_on: p.date, meal: p.meal, recipe_id: p.recipe_id, ver: p.ver, portion: p.portion, label: p.label || null, kcal: p.kcal, protein_g: p.P, carbs_g: p.C, fat_g: p.F, updated_at: new Date().toISOString() });
     if (type === 'intake_delete') return sb.from('intake_logs').delete().eq('id', p);
     if (type === 'goals_save') return sb.from('members').update({ kcal_goal: p.kcal, protein_goal: p.protein }).eq('user_id', me);
+    if (type === 'food_upsert') return sb.from('saved_foods').upsert({ id: p.id, household_id: h, name: p.name, kcal: p.kcal, protein_g: p.P, carbs_g: p.C, fat_g: p.F, uses: p.uses, last_used: p.last_used });
+    if (type === 'food_delete') return sb.from('saved_foods').delete().eq('id', p);
     if (type === 'fav_add') return sb.from('favorites').upsert({ user_id: me, recipe_id: p });
     if (type === 'fav_del') return sb.from('favorites').delete().match({ user_id: me, recipe_id: p });
     return { error: null };
@@ -658,14 +666,18 @@ const Sync = (() => {
   async function flush() {
     if (!enabled || st.stage !== 'ready' || flushing) return;
     flushing = true;
-    let box = outbox();
-    if (box.length) { st.status = 'syncing'; rerender(); }
-    while (box.length) {
+    if (outbox().length) { st.status = 'syncing'; rerender(); }
+    // always read the queue fresh: changes made while uploading join the end and are not lost
+    while (outbox().length) {
+      const head = outbox()[0];
       let res;
-      try { res = await run(box[0]); } catch (e) { res = { error: e }; }
-      if (res.error) { st.status = 'offline'; break; }
-      box = box.slice(1); setOutbox(box);
+      try { res = await run(head); } catch (e) { res = { error: e }; }
+      const code = res.error && String(res.error.code || '');
+      if (res.error && !/^(23|42|PGRST)/.test(code)) { st.status = 'offline'; break; }   // network trouble: keep and retry later
+      // done, or a permanent error (duplicate, rule check) that would block every later change: remove it
+      const rest = outbox(); if (rest.length && JSON.stringify(rest[0]) === JSON.stringify(head)) setOutbox(rest.slice(1));
     }
+    const box = outbox();
     if (!box.length) st.status = 'idle';
     flushing = false; rerender();
   }
@@ -1037,7 +1049,8 @@ Object.assign(T.zh, {
   ahH: 'Apple Health 自动上传', ahNone: '还没有设置。生成一个上传码，再按下面的步骤在 iPhone 上建一个快捷指令。', ahHas: d => `上传码建于 ${d}。忘了的话可以重新生成，旧的会失效。`,
   ahGen: '生成上传码', ahRegen: '重新生成上传码', ahShown: '这个上传码只显示这一次，先复制到快捷指令里：', copy: '复制', copied: '已复制', ahUrl: '上传地址',
   ahSteps: '在 iPhone 上怎么设置', ahLast: d => `最近一次上传：${d}`,
- readOnly: n => `${n} 的记录，只能看。`, macroShort: (p, c, f) => `蛋白 ${p} · 碳水 ${c} · 脂肪 ${f}`, partnerNoGoal: '还没设目标',
+  foodsH: '常吃的', foodSearch: '搜常吃的', saveFood: '存到常吃的，下次直接选', removeFood: '从常吃里删掉', noFoods: '手填或拍照记过的食物会存在这里，下次点一下就能记。', perPortion: '每份',
+  whose: '看谁的', readOnly: n => `${n} 的记录，只能看。`, macroShort: (p, c, f) => `蛋白 ${p} · 碳水 ${c} · 脂肪 ${f}`, partnerNoGoal: '还没设目标',
 });
 Object.assign(T.en, {
   tToday: 'Today', todayEyebrow: 'Today', goalSet: 'Set daily goals in Me', eaten: 'Eaten', left: n => `${n} to go`, over: n => `${n} over`,
@@ -1056,6 +1069,7 @@ Object.assign(T.en, {
   ahH: 'Apple Health upload', ahNone: 'Not set up yet. Create an upload code, then build a Shortcut on your iPhone with the steps below.', ahHas: d => `Upload code created ${d}. If you lose it, create a new one; the old one stops working.`,
   ahGen: 'Create upload code', ahRegen: 'Create a new upload code', ahShown: 'This code is shown only once. Copy it into the Shortcut now:', copy: 'Copy', copied: 'Copied', ahUrl: 'Upload address',
   ahSteps: 'How to set it up on iPhone', ahLast: d => `Last upload: ${d}`,
+  foodsH: 'My foods', foodSearch: 'Search my foods', saveFood: 'Save to My foods for next time', removeFood: 'Remove from My foods', noFoods: 'Foods you enter by hand or from a photo are kept here, so next time it\u2019s one tap.', perPortion: 'per portion',
   whose: 'Whose log', readOnly: n => `${n}’s log, view only.`, macroShort: (p, c, f) => `P ${p} · C ${c} · F ${f} g`, partnerNoGoal: 'No goals yet',
 });
 ICON.today = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>';
@@ -1065,8 +1079,9 @@ const mealName = m => t({ breakfast: 'mealB', lunch: 'mealL', dinner: 'mealD', s
 const PORTIONS = [0.5, 1, 1.5, 2];
 S.intake = load('intake', []);
 S.goals = load('goals', {});          // { [user]: { kcal, protein } }
-Object.assign(S, { dayOff: 0, whose: null, logForm: null, logMsg: '', photo: null, ingest: null, health: load('health', {}) });
-const persistFit = () => { save('intake', S.intake); save('goals', S.goals); };
+S.foods = load('foods', []);
+Object.assign(S, { foodQ: '', dayOff: 0, whose: null, logForm: null, logMsg: '', photo: null, ingest: null, health: load('health', {}) });
+const persistFit = () => { save('intake', S.intake); save('goals', S.goals); save('foods', S.foods); };
 
 const me = () => (Sync.enabled && Sync.st.user ? Sync.st.user.id : 'me');
 const pad2 = n => String(n).padStart(2, '0');
@@ -1127,14 +1142,27 @@ function logPanel(d, date) {
   const chips = planned.length ? `<div class="chips">${planned.map(e => { const r = byId(e.id); return `<button class="chip" data-act="lpick" data-id="${r.id}" data-v="${e.ver}" aria-pressed="${!!(f && f.recipe_id === r.id)}">${esc(title(r))}</button>`; }).join('')}
       <button class="chip" data-act="lother" aria-pressed="${!!(f && f.other)}">${t('other')}</button></div>`
     : `<p class="muted">${t('noPlanToday')}</p><div class="chips"><button class="chip" data-act="lother" aria-pressed="${!!(f && f.other)}">${t('other')}</button></div>`;
+  const q = S.foodQ.trim().toLowerCase();
+  const foods = [...S.foods].filter(x => !q || x.name.toLowerCase().includes(q))
+    .sort((a, b) => (b.uses - a.uses) || String(b.last_used).localeCompare(String(a.last_used))).slice(0, q ? 30 : 12);
+  const foodBlock = `<span class="label">${t('foodsH')}</span>
+    ${S.foods.length > 8 ? `<label class="field"><span class="sr">${t('foodSearch')}</span><input id="l-fq" type="search" placeholder="${t('foodSearch')}" value="${esc(S.foodQ)}"></label>` : ''}
+    ${S.foods.length ? `<div class="chips">${foods.map(x => `<button class="chip" data-act="lfood" data-id="${x.id}" aria-pressed="${!!(f && f.food === x.id)}">${esc(x.name)}</button>`).join('')}</div>` : `<p class="muted">${t('noFoods')}</p>`}`;
   let form = '';
   if (f) {
     const segMeal = `<div class="row"><span class="label">${t('meal')}</span><div class="seg">${MEALS.map(m => `<button data-act="lmeal" data-m="${m}" aria-pressed="${f.meal === m}">${mealName(m)}</button>`).join('')}</div></div>`;
     if (f.other) form = `${f.ai ? `<div class="ainote"><p>${esc(t('photoNote', f.ai.confidence, f.ai.note))}</p>${(f.ai.items || []).length ? `<ul>${f.ai.items.map(i => `<li>${esc(i.name)} · ${Math.round(i.grams || 0)} g · ${Math.round(i.kcal || 0)} kcal</li>`).join('')}</ul>` : ''}</div>` : ''}${segMeal}<label class="field"><span>${t('foodName')}</span><input id="l-name" type="text" value="${esc(f.name || '')}"></label>
       <div class="two">${[['l-kcal', 'kcalL', 'kcal'], ['l-p', 'proteinL', 'p'], ['l-c', 'carbsL', 'c'], ['l-f', 'fatL', 'fat']].map(([id, lab, k]) =>
         `<label class="field"><span>${t(lab)}</span><input id="${id}" type="number" inputmode="decimal" min="0" value="${esc(f[k] || '')}"></label>`).join('')}</div>
+      <label class="check"><input id="l-keep" type="checkbox" ${f.keep === false ? '' : 'checked'}> ${t('saveFood')}</label>
       <button class="action" data-act="lsave">${t('log')}</button>`;
-    else {
+    else if (f.food) {
+      const x = S.foods.find(y => y.id === f.food) || {}, k = v => Math.round((v || 0) * f.portion);
+      form = `${segMeal}<p class="muted">${esc(x.name)} · ${t('perPortion')} ${x.kcal} kcal · ${t('macroShort', x.P, x.C, x.F)}</p>
+        <div class="row"><span class="label">${t('portion')}</span><div class="seg">${PORTIONS.map(p => `<button data-act="lport" data-p="${p}" aria-pressed="${f.portion === p}">${p}</button>`).join('')}</div></div>
+        <button class="action" data-act="lsave">${t('log')} · ${k(x.kcal)} kcal · ${k(x.P)} g ${t('protein')}</button>
+        <button class="ghost" data-act="lfdel" style="align-self:flex-start">${t('removeFood')}</button>`;
+    } else {
       const r = byId(f.recipe_id), e = recipeEntry(r, f.ver, f.portion, f.meal, date);
       form = `${segMeal}${r.versions.light ? `<div class="row"><span class="label">${t('version')}</span><div class="seg"><button data-act="lver" data-v="orig" aria-pressed="${f.ver === 'orig'}">${t('orig')}</button><button data-act="lver" data-v="light" aria-pressed="${f.ver === 'light'}">${t('light')}</button></div></div>` : ''}
         <div class="row"><span class="label">${t('portion')}</span><div class="seg">${PORTIONS.map(p => `<button data-act="lport" data-p="${p}" aria-pressed="${f.portion === p}">${p}</button>`).join('')}</div></div>
@@ -1146,7 +1174,8 @@ function logPanel(d, date) {
     ? `<label class="action photo ${ph.busy ? 'busy' : ''}">${ICON.camera}<span>${ph.busy ? t('photoBusy') : t('photoBtn')}</span><input id="l-photo" type="file" accept="image/*" capture="environment" ${ph.busy ? 'disabled' : ''}></label>
        ${ph.error ? `<p class="err" role="alert">${esc((T[LANG].photoErr)[ph.error] || T[LANG].photoErr.default)}</p>` : ''}`
     : `<p class="muted">${t('photoLocal')}</p>`;
-  return `<div class="section-title"><h2>${t('logTitle')}</h2></div><section class="panel">${photo}<span class="label">${t('fromPlan')}</span>${chips}${form}
+  const formAfterPlan = f && f.recipe_id ? form : '', formAfterFoods = f && !f.recipe_id ? form : '';
+  return `<div class="section-title"><h2>${t('logTitle')}</h2></div><section class="panel">${photo}<span class="label">${t('fromPlan')}</span>${chips}${formAfterPlan}${foodBlock}${formAfterFoods}
     ${S.logMsg ? `<span class="toast" role="status">${esc(S.logMsg)}</span>` : ''}</section>`;
 }
 
@@ -1165,7 +1194,7 @@ function fitnessClick(a, b) {
   const date = ymdOf(dateAt(S.dayOff));
   const reset = () => { S.logForm = null; };
   // keep what was typed in the free-entry form when another button re-renders it
-  if (S.logForm && S.logForm.other) Object.assign(S.logForm, { name: val('l-name'), kcal: val('l-kcal'), p: val('l-p'), c: val('l-c'), fat: val('l-f') });
+  if (S.logForm && S.logForm.other) Object.assign(S.logForm, { name: val('l-name'), kcal: val('l-kcal'), p: val('l-p'), c: val('l-c'), fat: val('l-f'), keep: (document.getElementById('l-keep') || { checked: true }).checked });
   switch (a) {
     case 'dprev': S.dayOff--; reset(); S.logMsg = ''; break;
     case 'dnext': S.dayOff++; reset(); S.logMsg = ''; break;
@@ -1173,6 +1202,8 @@ function fitnessClick(a, b) {
     case 'whose': S.whose = b.dataset.u; reset(); break;
     case 'lpick': S.logForm = { recipe_id: b.dataset.id, ver: b.dataset.v, portion: 1, meal: defaultMeal() }; S.logMsg = ''; break;
     case 'lother': S.logForm = { other: true, meal: defaultMeal() }; S.logMsg = ''; break;
+    case 'lfood': S.logForm = { food: b.dataset.id, portion: 1, meal: (S.logForm && S.logForm.meal) || defaultMeal() }; S.logMsg = ''; break;
+    case 'lfdel': { const id = S.logForm.food; S.foods = S.foods.filter(x => x.id !== id); Sync.op('food_delete', id); reset(); break; }
     case 'lmeal': S.logForm.meal = b.dataset.m; break;
     case 'lver': S.logForm.ver = b.dataset.v; break;
     case 'lport': S.logForm.portion = +b.dataset.p; break;
@@ -1181,7 +1212,18 @@ function fitnessClick(a, b) {
       if (f.other) {
         const label = val('l-name').trim(), kcal = Math.round(+val('l-kcal'));
         if (!label || !(kcal >= 0)) return true;
-        addEntry({ uid: Sync.newId(), user: me(), date, meal: f.meal, recipe_id: null, ver: null, portion: 1, label, kcal, P: Math.round(+val('l-p')) || 0, C: Math.round(+val('l-c')) || 0, F: Math.round(+val('l-f')) || 0 });
+        const P = Math.round(+val('l-p')) || 0, C = Math.round(+val('l-c')) || 0, F = Math.round(+val('l-f')) || 0;
+        addEntry({ uid: Sync.newId(), user: me(), date, meal: f.meal, recipe_id: null, ver: null, portion: 1, label, kcal, P, C, F });
+        if ((document.getElementById('l-keep') || { checked: true }).checked) {
+          const old = S.foods.find(x => x.name.toLowerCase() === label.toLowerCase());
+          const food = { id: old ? old.id : Sync.newId(), name: label, kcal, P, C, F, uses: (old ? old.uses : 0) + 1, last_used: new Date().toISOString() };
+          S.foods = [...S.foods.filter(x => x !== old), food]; Sync.op('food_upsert', food);
+        }
+      } else if (f.food) {
+        const x = S.foods.find(y => y.id === f.food); if (!x) return true;
+        const k = v => Math.round((v || 0) * f.portion);
+        addEntry({ uid: Sync.newId(), user: me(), date, meal: f.meal, recipe_id: null, ver: null, portion: f.portion, label: x.name, kcal: k(x.kcal), P: k(x.P), C: k(x.C), F: k(x.F) });
+        x.uses += 1; x.last_used = new Date().toISOString(); Sync.op('food_upsert', x);
       } else addEntry(recipeEntry(byId(f.recipe_id), f.ver, f.portion, f.meal, date));
       reset(); S.logMsg = t('logged'); break;
     }
@@ -1274,6 +1316,13 @@ function healthPanel() {
     ${lastDay ? `<p class="sync">${esc(t('ahLast', lastDay))}</p>` : ''}
     <details><summary>${t('ahSteps')}</summary><ol class="steps small">${steps.map(x => `<li><span>${esc(x)}</span></li>`).join('')}</ol></details></section>`;
 }
+
+// search inside My foods without losing the keyboard
+document.addEventListener('input', ev => {
+  if (ev.target.id !== 'l-fq') return;
+  S.foodQ = ev.target.value; const pos = ev.target.selectionStart; render();
+  const el = document.getElementById('l-fq'); if (el) { el.focus(); el.setSelectionRange(pos, pos); }
+});
 
 render();
 Sync.init();
