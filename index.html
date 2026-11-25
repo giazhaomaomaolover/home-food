@@ -314,6 +314,14 @@ ul.log li:last-child { border-bottom: 0; }
 .check input, .ing input { accent-color: var(--ink); }
 .panel > .label, .tcard .label { font-size: 13px; font-weight: 600; color: var(--muted); }
 /* Today */
+.meals { display: grid; gap: 10px; }
+.mealbox { background: var(--ivory); border-radius: 16px; padding: 10px 14px; box-shadow: var(--shadow); }
+.mhead { display: flex; align-items: center; gap: 10px; } .mhead h3 { margin: 0; flex: 1; font-size: 15px; }
+.mealbox ul.log { box-shadow: none; padding: 0; margin-top: 4px; }
+.chip.sm { min-height: 34px; padding: 4px 12px; font-size: 13px; }
+.combo { border: 2px solid var(--ink); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.combo ul.log { box-shadow: none; background: var(--wash); }
+.ctot { margin: 0; font-size: 14px; }
 .upd textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font: inherit; font-size: 16px; resize: vertical; background: #fff; }
 .updlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .updlist li { background: var(--wash); border-radius: 12px; padding: 10px 12px; } .updlist li p { margin: 4px 0 0; font-size: 14px; }
@@ -1187,7 +1195,9 @@ function viewPlan() {
   const adds = `<div class="dayadd"><button class="chip main" data-act="ppick" data-day="${i}">${t('addDish')}</button><button class="chip" data-act="plopen" data-day="${i}" aria-expanded="${S.loPick === i}">${t('addLo')}</button><button class="chip" data-act="pout" data-day="${i}">${t('addOut')}</button></div>`;
   const logged = S.intake.filter(e => e.user === me() && e.date === date);
   const logPart = i <= todayIdx
-    ? `${logged.length ? `<section><h3 class="group">${t('loggedH')}</h3><ul class="ing log">${logged.map(e => `<li><span class="nm">${esc(entryTitle(e))}${e.portion && e.portion !== 1 ? ` <span class="muted">× ${e.portion}</span>` : ''}</span><span class="q">${e.kcal} kcal<small>${t('macroShort', e.P, e.C, e.F)}</small></span><button class="ghost" data-act="ldel" data-u="${e.uid}" aria-label="${t('remove')} ${esc(entryTitle(e))}">${t('remove')}</button></li>`).join('')}</ul></section>` : ''}${logPanel(d, date)}`
+    ? `<section class="meals">${MEALS.map(m => { const rows = logged.filter(e => e.meal === m), kc = rows.reduce((a, e) => a + (e.kcal || 0), 0);
+        return `<div class="mealbox"><div class="mhead"><h3 class="group">${mealName(m)}</h3><span class="muted small">${rows.length ? kc + ' kcal' : t('mealNone')}</span><button class="chip sm" data-act="laddmeal" data-m="${m}">${t('mealAdd')}</button></div>
+        ${rows.length ? `<ul class="ing log">${rows.map(e => `<li><span class="nm">${esc(entryTitle(e))}${e.portion && e.portion !== 1 ? ` <span class="muted">× ${e.portion}</span>` : ''}</span><span class="q">${e.kcal} kcal<small>${t('macroShort', e.P, e.C, e.F)}</small></span><button class="ghost" data-act="ldel" data-u="${e.uid}" aria-label="${t('remove')} ${esc(entryTitle(e))}">${t('remove')}</button></li>`).join('')}</ul>` : ''}</div>`; }).join('')}</section>${logPanel(d, date)}`
     : `<p class="muted">${t('logFuture')}</p>`;
   return `<main><div class="page-head"><div class="bar"><h1>${t('tPlan')}</h1>${langBtn()}</div>${syncLine()}</div>
     ${strip}<div class="dayview" id="dayview"><div class="daytitle"><h2>${esc(dayLabel(i))}</h2><span class="muted">${esc(t('dayLabel', d))}</span></div>
@@ -1369,7 +1379,7 @@ document.addEventListener('click', ev => {
 // Entries: { uid, user, date 'YYYY-MM-DD', meal, recipe_id, ver, portion, label, kcal, P, C, F }
 // user is the Supabase user id in the synced app, 'me' in the preview.
 Object.assign(T.zh, {
-  tToday: '今天', bodyFat: '体脂率', burnedB: n => `运动 +${n}`, macOver: n => `${n}超出`, stepsH: '步数', burnedH: '消耗热量', exMin: n => `运动 ${n} 分钟`, recovH: '恢复（Oura）', noAct: '今天还没有运动数据', pageN: (i, n) => `第 ${i} / ${n} 页`, swipeHint: '左右滑动看更多', wH: '体重', wLb: '体重 lb', wBf: '体脂 %', wSave: '记录', wLogBtn: '记体重', wUpdate: '更新', wDel: '删除这天的体重', wSaved: '已记录。', wBad: '请输入 50–550 之间的体重（lb）。', wTrend: (t, c) => `趋势 ${t} lb${c != null ? ` · 每周 ${c > 0 ? '+' : ''}${c} lb` : ''}`, wLast: d => `最近一次：${d}`, wNone: '还没有记录。每天早上空腹称一次最准。', wWeek: n => `本周 ${n}/7 天`, wStreak: n => `连续 ${n} 天`, w30: '过去 30 天', todayEyebrow: 'Today · 今天', kLeft: '还能吃', kOver: '超出目标', kEaten: '已吃热量', eatGoal: (e, g) => `已吃 ${e} · 目标 ${g}`, macLeft: n => `${n}还差`, macEaten: n => `${n}已吃`, logJump: '记一餐', goalSet: '在「我」里设每天的目标', eaten: '已吃', left: n => `还差 ${n}`, over: n => `超了 ${n}`,
+  tToday: '今天', bodyFat: '体脂率', burnedB: n => `运动 +${n}`, comboBtn: '组合一餐', comboH: '组合一餐', comboHint: '用上面的搜索、扫码、常吃的或计划里的菜加进来，每加一样都会放到这里；加完一起记。', comboEmpty: '还没有加东西。', comboName: '给这顿起个名字（存到常吃的，下次一键记）', comboLog: n => `记这一餐 · ${n} kcal`, comboCancel: '取消组合', comboAdd: '加到这一餐', mealAdd: '+ 添加', mealNone: '还没记', macOver: n => `${n}超出`, stepsH: '步数', burnedH: '消耗热量', exMin: n => `运动 ${n} 分钟`, recovH: '恢复（Oura）', noAct: '今天还没有运动数据', pageN: (i, n) => `第 ${i} / ${n} 页`, swipeHint: '左右滑动看更多', wH: '体重', wLb: '体重 lb', wBf: '体脂 %', wSave: '记录', wLogBtn: '记体重', wUpdate: '更新', wDel: '删除这天的体重', wSaved: '已记录。', wBad: '请输入 50–550 之间的体重（lb）。', wTrend: (t, c) => `趋势 ${t} lb${c != null ? ` · 每周 ${c > 0 ? '+' : ''}${c} lb` : ''}`, wLast: d => `最近一次：${d}`, wNone: '还没有记录。每天早上空腹称一次最准。', wWeek: n => `本周 ${n}/7 天`, wStreak: n => `连续 ${n} 天`, w30: '过去 30 天', todayEyebrow: 'Today · 今天', kLeft: '还能吃', kOver: '超出目标', kEaten: '已吃热量', eatGoal: (e, g) => `已吃 ${e} · 目标 ${g}`, macLeft: n => `${n}还差`, macEaten: n => `${n}已吃`, logJump: '记一餐', goalSet: '在「我」里设每天的目标', eaten: '已吃', left: n => `还差 ${n}`, over: n => `超了 ${n}`,
   protein: '蛋白质', carbs: '碳水', fat: '脂肪', mealB: '早餐', mealL: '午餐', mealD: '晚餐', mealS: '加餐', nothing: '还没记录',
   logTitle: '记一餐', fromPlan: '这天计划里的', noPlanToday: '今天菜单上没有菜。可以在食谱里打开一道菜记录，或者手填。',
   other: '手填其他食物', foodName: '吃了什么', kcalL: '热量 kcal', proteinL: '蛋白质 g', carbsL: '碳水 g', fatL: '脂肪 g', portion: '份量', meal: '哪一餐',
@@ -1399,7 +1409,7 @@ Object.assign(T.zh, {
 Object.assign(T.en, {
   tToday: 'Today', todayEyebrow: 'Today', goalSet: 'Set daily goals in Me', eaten: 'Eaten', left: n => `${n} to go`, over: n => `${n} over`,
   protein: 'Protein', carbs: 'Carbs', fat: 'Fat', mealB: 'Breakfast', mealL: 'Lunch', mealD: 'Dinner', mealS: 'Snack', nothing: 'Nothing logged yet',
-  logTitle: 'Log a meal', bodyFat: 'Body fat', burnedB: n => `+${n} burned`, macOver: n => `${n} over`, stepsH: 'Steps', burnedH: 'Calories burned', exMin: n => `${n} min exercise`, recovH: 'Recovery (Oura)', noAct: 'No activity data for this day yet', pageN: (i, n) => `Page ${i} of ${n}`, swipeHint: 'Swipe for more', wH: 'Weight', wLb: 'Weight (lb)', wBf: 'Body fat %', wSave: 'Log', wLogBtn: 'Log weight', wUpdate: 'Update', wDel: 'Delete this day’s weight', wSaved: 'Logged.', wBad: 'Enter a weight between 50 and 550 lb.', wTrend: (t, c) => `Trend ${t} lb${c != null ? ` · ${c > 0 ? '+' : ''}${c} lb / week` : ''}`, wLast: d => `Last: ${d}`, wNone: 'Nothing logged yet. Weigh in the morning before eating for the steadiest numbers.', wWeek: n => `${n}/7 this week`, wStreak: n => `${n}-day streak`, w30: 'Last 30 days', kLeft: 'Calories left', kOver: 'Over goal', kEaten: 'Calories eaten', eatGoal: (e, g) => `${e} eaten · goal ${g}`, macLeft: n => `${n} left`, macEaten: n => `${n} eaten`, logJump: 'Log a meal', fromPlan: 'On this day’s plan', noPlanToday: 'Nothing planned today. Open a recipe to log it, or enter something by hand.',
+  logTitle: 'Log a meal', bodyFat: 'Body fat', burnedB: n => `+${n} burned`, comboBtn: 'Build a meal', comboH: 'Building a meal', comboHint: 'Add things with search, scan, My foods or the plan above; each one lands here, then log them together.', comboEmpty: 'Nothing added yet.', comboName: 'Name this meal (saved to My foods for one-tap next time)', comboLog: n => `Log this meal · ${n} kcal`, comboCancel: 'Cancel', comboAdd: 'Add to this meal', mealAdd: '+ Add', mealNone: 'Nothing yet', macOver: n => `${n} over`, stepsH: 'Steps', burnedH: 'Calories burned', exMin: n => `${n} min exercise`, recovH: 'Recovery (Oura)', noAct: 'No activity data for this day yet', pageN: (i, n) => `Page ${i} of ${n}`, swipeHint: 'Swipe for more', wH: 'Weight', wLb: 'Weight (lb)', wBf: 'Body fat %', wSave: 'Log', wLogBtn: 'Log weight', wUpdate: 'Update', wDel: 'Delete this day’s weight', wSaved: 'Logged.', wBad: 'Enter a weight between 50 and 550 lb.', wTrend: (t, c) => `Trend ${t} lb${c != null ? ` · ${c > 0 ? '+' : ''}${c} lb / week` : ''}`, wLast: d => `Last: ${d}`, wNone: 'Nothing logged yet. Weigh in the morning before eating for the steadiest numbers.', wWeek: n => `${n}/7 this week`, wStreak: n => `${n}-day streak`, w30: 'Last 30 days', kLeft: 'Calories left', kOver: 'Over goal', kEaten: 'Calories eaten', eatGoal: (e, g) => `${e} eaten · goal ${g}`, macLeft: n => `${n} left`, macEaten: n => `${n} eaten`, logJump: 'Log a meal', fromPlan: 'On this day’s plan', noPlanToday: 'Nothing planned today. Open a recipe to log it, or enter something by hand.',
   other: 'Something else', foodName: 'What you ate', kcalL: 'Calories (kcal)', proteinL: 'Protein (g)', carbsL: 'Carbs (g)', fatL: 'Fat (g)', portion: 'Portion', meal: 'Meal',
   log: 'Log it', logged: 'Logged for today.', remove: 'Remove', goalsH: 'Daily goals', kcalGoal: 'Calories (kcal)', proteinGoal: 'Protein (g)', saveGoals: 'Save goals',
   goalsSaved: 'Goals saved.', goalsHint: 'Only used to show progress. Your partner can see your log and goals too.', logRecipe: 'Log to today’s food', portionN: p => `${p} portion${p === 1 ? '' : 's'}`,
@@ -1441,7 +1451,7 @@ const pad2 = n => String(n).padStart(2, '0');
 const ymdOf = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 function dateAt(off) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + off); return d; }
 function mondayOf(d) { const x = new Date(d); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return ymdOf(x); }
-function defaultMeal() { const h = new Date().getHours(); return h < 10 ? 'breakfast' : h < 15 ? 'lunch' : h < 21 ? 'dinner' : 'snack'; }
+function defaultMeal() { if (S.logMeal) return S.logMeal; const h = new Date().getHours(); return h < 10 ? 'breakfast' : h < 15 ? 'lunch' : h < 21 ? 'dinner' : 'snack'; }
 // "610–770" -> 690: a range is logged at its midpoint
 const mid = s => { const a = String(s).replace(/,/g, '').match(/[\d.]+/g).map(Number); return a.reduce((x, y) => x + y, 0) / a.length; };
 
@@ -1452,6 +1462,7 @@ function recipeEntry(r, ver, portion, meal, date) {
 }
 function partner() { return Sync.enabled && Sync.st.user ? Sync.st.members.find(m => m.user_id !== Sync.st.user.id) : null; }
 function addEntry(e, single) {
+  if (S.combo && !e.combo) { S.combo.items.push({ label: entryTitle(e) + (e.portion && e.portion !== 1 ? ` × ${e.portion}` : ''), kcal: e.kcal || 0, P: e.P || 0, C: e.C || 0, F: e.F || 0 }); return null; }
   S.intake.push(e); persistFit(); Sync.op('intake_upsert', e);
   const p = partner();
   if (!single && S.alsoPartner && p) { const copy = { ...e, uid: Sync.newId(), user: p.user_id }; S.intake.push(copy); persistFit(); Sync.op('intake_upsert', copy); return p.display_name || ''; }
@@ -1583,14 +1594,14 @@ function logPanel(d, date) {
     ? (ph.error ? `<p class="err" role="alert">${esc((T[LANG].photoErr)[ph.error] || T[LANG].photoErr.default)}</p>` : '')
     : `<p class="muted">${t('photoLocal')}</p>`;
   const formAfterPlan = f && f.recipe_id ? form : '', formAfterFoods = f && !f.recipe_id && !f.search && !f.pick ? form : '';
-  const tools = Sync.enabled ? `<div class="chips"><button class="chip" data-act="lsearch" aria-pressed="${!!(f && f.search)}">${ICON.search} ${t('dbSearch')}</button>
+  const tools = Sync.enabled ? `<div class="chips"><button class="chip" data-act="lcombo" aria-pressed="${!!S.combo}">＋ ${t('comboBtn')}</button><button class="chip" data-act="lsearch" aria-pressed="${!!(f && f.search)}">${ICON.search} ${t('dbSearch')}</button>
       <label class="chip filepick ${S.scan && S.scan.busy ? 'busy' : ''}">${ICON.barcode} ${S.scan && S.scan.busy ? t('scanBusy') : t('scan')}<input id="l-bar" type="file" accept="image/*" capture="environment"></label>
       ${ph.busy ? `<span class="chip filepick busy">${ICON.camera} ${t('photoBusy')}</span>` : `<label class="chip filepick">${ICON.camera} ${t('photoCam')}<input id="l-photo" type="file" accept="image/*" capture="environment"></label>
       <label class="chip filepick">${ICON.camera} ${t('photoLib')}<input id="l-photo2" type="file" accept="image/*"></label>`}</div>` : '';
   const formTop = f && (f.search || f.pick) ? form : '';
   const pp = partner();
   const also = pp ? `<label class="check"><input id="l-also" type="checkbox" data-act="lalso" ${S.alsoPartner ? 'checked' : ''}> ${esc(t('alsoFor', pp.display_name || '—'))}</label>` : '';
-  return `<div class="section-title" id="logpanel"><h2>${t('logTitle')}</h2></div><section class="panel">${photo}${tools}${also}${formTop}<span class="label">${t('fromPlan')}</span>${chips}${formAfterPlan}${foodBlock}${formAfterFoods}
+  return `<div class="section-title" id="logpanel"><h2>${t('logTitle')}</h2></div><section class="panel">${photo}${tools}${comboCard()}${also}${formTop}<span class="label">${t('fromPlan')}</span>${chips}${formAfterPlan}${foodBlock}${formAfterFoods}
     ${S.logMsg ? `<span class="toast" role="status">${esc(S.logMsg)}</span>` : ''}</section>`;
 }
 
@@ -1598,6 +1609,7 @@ function logPanel(d, date) {
 function fitnessClick(a, b) {
   const val = id => (document.getElementById(id) || {}).value || '';
   const date = S.tab === 'plan' ? ymdOf(planDate(S.planDay ?? 0)) : ymdOf(dateAt(S.dayOff));
+  if (comboClick(a, b, date)) { persistFit(); render(); return true; }
   const reset = () => { S.logForm = null; };
   // keep what was typed in the free-entry form when another button re-renders it
   if (S.logForm && S.logForm.pick && document.getElementById('l-g')) { S.logForm.grams = val('l-g'); S.logForm.keep = document.getElementById('l-keep').checked; }
@@ -1621,6 +1633,7 @@ function fitnessClick(a, b) {
     case 'wopen': S.wOpen = true; setTimeout(() => { const el = document.getElementById('w-lb'); if (el) el.focus(); }, 0); break;
     case 'wdel': delete S.weights[date]; save('weights', S.weights); Sync.op('weigh_delete', date); S.wMsg = ''; S.wForm = null; break;
     case 'dset': S.dayOff = +b.dataset.o; reset(); S.logMsg = ''; S.wMsg = ''; S.wForm = null; break;
+    case 'laddmeal': S.logMeal = b.dataset.m; S.logForm = null; if (S.combo) S.combo.meal = b.dataset.m; setTimeout(() => { const el = document.getElementById('logpanel'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 30); break;
     case 'lalso': S.alsoPartner = !!b.checked; save('alsoPartner', S.alsoPartner); return true;
     case 'meview': S.meView = b.dataset.v; break;
     case 'trange': S.trendRange = +b.dataset.n; break;
@@ -1669,7 +1682,7 @@ function fitnessClick(a, b) {
         addEntry({ uid: Sync.newId(), user: me(), date, meal: f.meal, recipe_id: null, ver: null, portion: f.portion, label: x.name, kcal: k(x.kcal), P: k(x.P), C: k(x.C), F: k(x.F) });
         x.uses += 1; x.last_used = new Date().toISOString(); Sync.op('food_upsert', x);
       } else addEntry(recipeEntry(byId(f.recipe_id), f.ver, f.portion, f.meal, date));
-      reset(); S.logMsg = S.alsoPartner && partner() ? t('loggedBoth', partner().display_name || '') : t('logged'); break;
+      reset(); S.logMsg = S.combo ? '' : S.alsoPartner && partner() ? t('loggedBoth', partner().display_name || '') : t('logged'); break;
     }
     case 'ldel': { const i = S.intake.findIndex(e => e.uid === b.dataset.u); if (i >= 0) { S.intake.splice(i, 1); persistFit(); Sync.op('intake_delete', b.dataset.u); } break; }
     case 'rlog': {   // from the recipe page: log the version and portion being viewed
@@ -1979,6 +1992,42 @@ document.addEventListener('scroll', ev => {
     S.planDay = n; S.loPick = null; S.logForm = null; S.logMsg = ''; render();
   }, { passive: true });
 })();
+
+// ---- build one meal out of several foods, then log it together ----
+function comboCard() {
+  const c = S.combo; if (!c) return '';
+  const sum = k => c.items.reduce((a, x) => a + (x[k] || 0), 0);
+  return `<div class="combo"><div class="whead"><span class="label">${t('comboH')}</span><button class="linkish small" data-act="lcombox">${t('comboCancel')}</button></div>
+    <p class="muted small">${t('comboHint')}</p>
+    <div class="seg">${MEALS.map(m => `<button data-act="lcmeal" data-m="${m}" aria-pressed="${c.meal === m}">${mealName(m)}</button>`).join('')}</div>
+    ${c.items.length ? `<ul class="ing log">${c.items.map((x, i) => `<li><span class="nm">${esc(x.label)}</span><span class="q">${x.kcal} kcal<small>${t('macroShort', x.P, x.C, x.F)}</small></span><button class="ghost" data-act="lcdel" data-i="${i}" aria-label="${t('remove')} ${esc(x.label)}">×</button></li>`).join('')}</ul>
+      <p class="ctot"><b>${sum('kcal')} kcal</b> · ${t('macroShort', sum('P'), sum('C'), sum('F'))}</p>
+      <label class="field"><span>${t('comboName')}</span><input id="l-cname" type="text" maxlength="80" value="${esc(c.name || '')}"></label>
+      <button class="action" data-act="lclog">${t('comboLog', sum('kcal'))}</button>` : `<p class="muted">${t('comboEmpty')}</p>`}</div>`;
+}
+function comboClick(a, b, date) {
+  const c = S.combo;
+  switch (a) {
+    case 'lcombo': S.combo = c ? null : { meal: defaultMeal(), items: [], name: '' }; S.logForm = null; S.logMsg = ''; return true;
+    case 'lcombox': S.combo = null; return true;
+    case 'lcmeal': c.meal = b.dataset.m; c.name = (document.getElementById('l-cname') || {}).value ?? c.name; return true;
+    case 'lcdel': c.items.splice(+b.dataset.i, 1); return true;
+    case 'lclog': {
+      const name = ((document.getElementById('l-cname') || {}).value || '').trim();
+      const sum = k => c.items.reduce((x, y) => x + (y[k] || 0), 0);
+      const e = { uid: Sync.newId(), user: me(), date, meal: c.meal, recipe_id: null, ver: null, portion: 1, combo: true,
+        label: (name || c.items.map(x => x.label).join(' + ')).slice(0, 120), kcal: sum('kcal'), P: sum('P'), C: sum('C'), F: sum('F') };
+      const pn = addEntry(e); delete e.combo;
+      if (name) {
+        const old = S.foods.find(x => x.name.toLowerCase() === name.toLowerCase());
+        const food = { id: old ? old.id : Sync.newId(), name, kcal: e.kcal, P: e.P, C: e.C, F: e.F, uses: (old ? old.uses : 0) + 1, last_used: new Date().toISOString() };
+        S.foods = [...S.foods.filter(x => x !== old), food]; Sync.op('food_upsert', food);
+      }
+      S.combo = null; S.logMsg = pn ? t('loggedBoth', pn) : t('logged'); persistFit(); return true;
+    }
+  }
+  return false;
+}
 
 // ---- Trends: last 7 or 30 days, one small chart per measure (Phase 5d) ----
 // Single-series charts in the app's spice colour; goal shown as a dashed reference line.
