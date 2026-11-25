@@ -330,9 +330,11 @@ ul.log li:last-child { border-bottom: 0; }
 .updlist li > div { display: flex; gap: 8px; align-items: center; }
 .ustat { font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 2px 8px; background: #FFF4D6; }
 .updlist li.done .ustat { background: var(--ok-soft); color: var(--ok); }
-.dishlink { border: 0; text-align: left; background: #F1F1EE; border-radius: 12px; padding: 8px 10px; display: block; }
+.dl { min-width: 0; }
+.dishlink { border: 0; text-align: left; background: #F1F1EE; border-radius: 10px; padding: 5px 8px 5px 10px; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; font: inherit; font-weight: 600; color: inherit; }
+.dl > .s { margin-top: 4px; padding-left: 2px; }
 .dishlink:active { background: #E6E6E2; }
-.dishlink .t { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.dishlink .t { min-width: 0; font-size: 16px; line-height: 1.25; }
 .dishlink .chev { font-size: 20px; color: var(--muted); line-height: 1; }
 .mtitle { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 2px 0; font-size: 14px; font-weight: 700; color: var(--ink); text-align: left; min-height: 36px; }
 .mico { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: color-mix(in srgb, var(--mc) 14%, white); flex: none; }
@@ -1172,11 +1174,11 @@ function planEntryHtml(e, idx, i) {
   const r = byId(e.id), v = r.versions[e.ver] || r.versions.orig;
   if (e.kind === 'leftover') {
     const src = S.plan.find(x => isCook(x) && x.id === e.id && x.day < i);
-    return `<div class="entry kind-lo">${cover(r, 'thumb')}<button class="dishlink" data-act="open" data-id="${r.id}"><div class="t">${esc(t('loOf', title(r)))}<span class="chev" aria-hidden="true">›</span></div><div class="s">${src ? esc(t('loFrom', dayLabel(src.day))) + ' · ' : ''}${t('portionX', +e.portion || 1)}</div></button><span></span>
+    return `<div class="entry kind-lo">${cover(r, 'thumb')}<div class="dl"><button class="dishlink" data-act="open" data-id="${r.id}"><span class="t">${esc(t('loOf', title(r)))}</span><span class="chev" aria-hidden="true">›</span></button><div class="s">${src ? esc(t('loFrom', dayLabel(src.day))) + ' · ' : ''}${t('portionX', +e.portion || 1)}</div></div><span></span>
     <div class="ctl"><div class="seg" role="group" aria-label="${t('loPortion')}">${[0.5, 0.8, 1, 1.5].map(p => `<button data-act="pport" data-i="${idx}" data-p="${p}" aria-pressed="${(+e.portion || 1) === p}">${p}</button>`).join('')}</div>
     ${delBtn(t('loOf', title(r)))}</div></div>`;
   }
-  return `<div class="entry">${cover(r, 'thumb')}<button class="dishlink" data-act="open" data-id="${r.id}"><div class="t">${esc(title(r))}<span class="chev" aria-hidden="true">›</span></div><div class="s">${t(e.ver === 'light' ? 'light' : 'orig')} · ${v.n.kcal} ${t('pp')}</div></button>${pill(v.status)}
+  return `<div class="entry">${cover(r, 'thumb')}<div class="dl"><button class="dishlink" data-act="open" data-id="${r.id}"><span class="t">${esc(title(r))}</span><span class="chev" aria-hidden="true">›</span></button><div class="s">${t(e.ver === 'light' ? 'light' : 'orig')} · ${v.n.kcal} ${t('pp')}</div></div>${pill(v.status)}
     <div class="ctl"><div class="seg" role="group" aria-label="${t('servings')}">${[1, 2, 4].map(s => `<button data-act="pserv" data-i="${idx}" data-s="${s}" aria-pressed="${e.servings === s}">${t('nPpl', s)}</button>`).join('')}</div>
     ${r.versions.light ? `<button class="ghost" data-act="pver" data-i="${idx}">${t('switchTo', t(e.ver === 'light' ? 'orig' : 'light'))}</button>` : ''}
     ${delBtn(title(r))}</div></div>`;
