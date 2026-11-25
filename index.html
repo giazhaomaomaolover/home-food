@@ -1417,7 +1417,7 @@ Object.assign(T.zh, {
   log: '记录', logged: '已记到今天。', remove: '删除', goalsH: '每天的目标', kcalGoal: '热量 kcal', proteinGoal: '蛋白质 g', saveGoals: '保存目标',
   goalsSaved: '目标已保存。', goalsHint: '只用来显示进度。对方也看得到你的记录和目标。', logRecipe: '记到今天的饮食', portionN: p => `${p} 份`,
   dayLabel: d => `${d.getMonth() + 1}月${d.getDate()}日 ${DAYS_I.zh[(d.getDay() + 6) % 7]}`, prevDay: '前一天', nextDay: '后一天', today: '回到今天',
-  photoBtn: '拍照估算热量', photoCam: '拍照估算', photoLib: '从相册选', aiMeta: (c, n) => `AI 估算 · 可信度${{ low: '低', medium: '中', high: '高' }[c] || ''}${n ? ' · ' + n : ''}`, aiHint: '改克数或份量，总数会跟着变；也可以直接改下面的总数。', aiPortion: '份量', aiGrams: n => `${n} 的克数`, aiDel: n => `去掉 ${n}`, aiTotals: '名称和总数', photoBusy: '正在看照片…', photoNote: (c, n) => `AI 估算，可信度${{ low: '低', medium: '中', high: '高' }[c] || ''}。${n || ''} 数字可以改了再记录。`,
+  photoBtn: '拍照 / 相册估算热量', photoCam: '拍照估算', photoLib: '从相册选', aiMeta: (c, n) => `AI 估算 · 可信度${{ low: '低', medium: '中', high: '高' }[c] || ''}${n ? ' · ' + n : ''}`, aiHint: '改克数或份量，总数会跟着变；也可以直接改下面的总数。', aiPortion: '份量', aiGrams: n => `${n} 的克数`, aiDel: n => `去掉 ${n}`, aiTotals: '名称和总数', photoBusy: '正在看照片…', photoNote: (c, n) => `AI 估算，可信度${{ low: '低', medium: '中', high: '高' }[c] || ''}。${n || ''} 数字可以改了再记录。`,
   photoErr: { not_configured: '拍照估算还没开通：需要在 Supabase 里加一个 API key（见 Claude 的说明）。', daily_cap: '今天拍照估算的次数用完了，明天再试，或者手填。', not_food: '照片里好像没有食物，换一张试试。', offline: '没联网，联网后再试。', bad_image: '照片读不出来，换一张试试。', default: '估算失败了，可以再试一次或者手填。' },
   photoLocal: '拍照估算只在同步版里能用。',
   healthH: '健康数据', steps: '步数', activeKcal: '活动消耗', exercise: '锻炼', restingHr: '静息心率', weight: '体重', sleep: '睡眠',
@@ -1445,7 +1445,7 @@ Object.assign(T.en, {
   log: 'Log it', logged: 'Logged for today.', remove: 'Remove', goalsH: 'Daily goals', kcalGoal: 'Calories (kcal)', proteinGoal: 'Protein (g)', saveGoals: 'Save goals',
   goalsSaved: 'Goals saved.', goalsHint: 'Only used to show progress. Your partner can see your log and goals too.', logRecipe: 'Log to today’s food', portionN: p => `${p} portion${p === 1 ? '' : 's'}`,
   dayLabel: d => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }), prevDay: 'Previous day', nextDay: 'Next day', today: 'Back to today',
-  photoBtn: 'Estimate from a photo', photoCam: 'Take a photo', photoLib: 'Choose from album', aiMeta: (c, n) => `AI estimate · ${c || 'unknown'} confidence${n ? ' · ' + n : ''}`, aiHint: 'Change grams or the portion and the totals follow; or edit the totals below directly.', aiPortion: 'Portion', aiGrams: n => `Grams of ${n}`, aiDel: n => `Remove ${n}`, aiTotals: 'Name and totals', photoBusy: 'Looking at the photo…', photoNote: (c, n) => `AI estimate, ${c || 'unknown'} confidence. ${n || ''} Adjust the numbers before logging if needed.`,
+  photoBtn: 'Photo estimate', photoCam: 'Take a photo', photoLib: 'Choose from album', aiMeta: (c, n) => `AI estimate · ${c || 'unknown'} confidence${n ? ' · ' + n : ''}`, aiHint: 'Change grams or the portion and the totals follow; or edit the totals below directly.', aiPortion: 'Portion', aiGrams: n => `Grams of ${n}`, aiDel: n => `Remove ${n}`, aiTotals: 'Name and totals', photoBusy: 'Looking at the photo…', photoNote: (c, n) => `AI estimate, ${c || 'unknown'} confidence. ${n || ''} Adjust the numbers before logging if needed.`,
   photoErr: { not_configured: 'Photo estimates aren’t switched on yet: an API key needs adding in Supabase (see Claude’s note).', daily_cap: 'Today’s photo estimates are used up. Try tomorrow or enter it by hand.', not_food: 'That photo doesn’t seem to show food. Try another.', offline: 'You’re offline. Try again when connected.', bad_image: 'Couldn’t read that photo. Try another.', default: 'The estimate failed. Try again or enter it by hand.' },
   photoLocal: 'Photo estimates work only in the synced app.',
   healthH: 'Health', steps: 'Steps', activeKcal: 'Active energy', exercise: 'Exercise', restingHr: 'Resting heart rate', weight: 'Weight', sleep: 'Sleep',
@@ -1627,8 +1627,7 @@ function logPanel(d, date) {
   const formAfterPlan = f && f.recipe_id ? form : '', formAfterFoods = f && !f.recipe_id && !f.search && !f.pick ? form : '';
   const tools = Sync.enabled ? `<div class="chips"><button class="chip" data-act="lcombo" aria-pressed="${!!S.combo}">＋ ${t('comboBtn')}</button><button class="chip" data-act="lsearch" aria-pressed="${!!(f && f.search)}">${ICON.search} ${t('dbSearch')}</button>
       <label class="chip filepick ${S.scan && S.scan.busy ? 'busy' : ''}">${ICON.barcode} ${S.scan && S.scan.busy ? t('scanBusy') : t('scan')}<input id="l-bar" type="file" accept="image/*" capture="environment"></label>
-      ${ph.busy ? `<span class="chip filepick busy">${ICON.camera} ${t('photoBusy')}</span>` : `<label class="chip filepick">${ICON.camera} ${t('photoCam')}<input id="l-photo" type="file" accept="image/*" capture="environment"></label>
-      <label class="chip filepick">${ICON.camera} ${t('photoLib')}<input id="l-photo2" type="file" accept="image/*"></label>`}</div>` : '';
+      ${ph.busy ? `<span class="chip filepick busy">${ICON.camera} ${t('photoBusy')}</span>` : `<label class="chip filepick">${ICON.camera} ${t('photoBtn')}<input id="l-photo" type="file" accept="image/*"></label>`}</div>` : '';
   const formTop = f && (f.search || f.pick) ? form : '';
   const pp = partner();
   const also = pp ? `<label class="check"><input id="l-also" type="checkbox" data-act="lalso" ${S.alsoPartner ? 'checked' : ''}> ${esc(t('alsoFor', pp.display_name || '—'))}</label>` : '';
