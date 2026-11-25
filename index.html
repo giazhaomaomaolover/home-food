@@ -258,7 +258,8 @@ h1, h2 { font-weight: 800; letter-spacing: -.02em; }
 .frow { display: flex; gap: 8px; overflow-x: auto; margin: 0 -18px; padding: 2px 18px; scrollbar-width: none; }
 .frow::-webkit-scrollbar { display: none; }
 .frow > * { flex: none; }
-.pick select { min-height: 38px; border-radius: 999px; border-color: #DEDEDA; font-size: 13.5px; padding: 0 32px 0 14px; }
+.filters { gap: 8px; }
+.pick select { min-height: 40px; border-radius: 999px; border-color: #DEDEDA; font-size: 13.5px; padding: 0 32px 0 14px; }
 .pick.on select { background-color: var(--ink); border-color: var(--ink); color: #fff;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E"); }
 .count { font-weight: 500; }
@@ -994,9 +995,9 @@ function viewCook() {
   }).join('');
   return `<main><div class="page-head"><div class="bar"><h1>${t('tCook')}</h1>${langBtn()}</div></div>
     <label class="search">${ICON.search}<span style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">${t('search')}</span><input id="q" type="search" placeholder="${esc(t('ph'))}" value="${esc(S.q)}" autocomplete="off"></label>
-    <div class="frow" role="group" aria-label="${t('byNut')}">${`<button class="chip favf" data-act="favonly" aria-pressed="${!!S.favOnly}">${ICON.markSmall} ${t('favOnly')}</button>`}${[['low', 'low'], ['carb', 'lowCarb'], ['fat', 'lowFat']].map(([k, lab]) => `<button class="chip nutf" data-act="nut" data-k="${k}" aria-pressed="${S.nut[k]}">${t(lab)}</button>`).join('')}
-    <label class="pick${S.rtype !== '*' ? ' on' : ''}"><span class="sr">${t('byType')}</span><select data-act="rtype-sel" aria-label="${t('byType')}">${['*', ...Object.keys(TYPES_I.zh)].map(k => `<option value="${k}" ${S.rtype === k ? 'selected' : ''}>${k === '*' ? t('allTypes') : `${typeName(k)} (${RECIPES.filter(r => r.type === k).length})`}</option>`).join('')}</select></label>
+    <div class="filters"><label class="pick${S.rtype !== '*' ? ' on' : ''}"><span class="sr">${t('byType')}</span><select data-act="rtype-sel" aria-label="${t('byType')}">${['*', ...Object.keys(TYPES_I.zh)].map(k => `<option value="${k}" ${S.rtype === k ? 'selected' : ''}>${k === '*' ? t('allTypes') : `${typeName(k)} (${RECIPES.filter(r => r.type === k).length})`}</option>`).join('')}</select></label>
       <label class="pick${S.cuisine !== '*' ? ' on' : ''}"><span class="sr">${t('byCuisine')}</span><select data-act="cuisine-sel" aria-label="${t('byCuisine')}">${cuisines.map(c => `<option value="${esc(c)}" ${S.cuisine === c ? 'selected' : ''}>${c === '*' ? t('allCuisines') : `${esc(cuisineName(c))} (${cnt[c]})`}</option>`).join('')}</select></label></div>
+    <div class="frow" role="group" aria-label="${t('byNut')}">${`<button class="chip favf" data-act="favonly" aria-pressed="${!!S.favOnly}">${ICON.markSmall} ${t('favOnly')}</button>`}${[['low', 'low'], ['carb', 'lowCarb'], ['fat', 'lowFat']].map(([k, lab]) => `<button class="chip nutf" data-act="nut" data-k="${k}" aria-pressed="${S.nut[k]}">${t(lab)}</button>`).join('')}</div>
     <p class="count">${t('count', list.length, RECIPES.length)}</p>
     <div class="cards">${cards || `<p class="empty">${t('empty')}</p>`}</div>
     <p class="muted">${t('footCook')}</p>
