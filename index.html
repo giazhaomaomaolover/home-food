@@ -332,7 +332,14 @@ ul.log li:last-child { border-bottom: 0; }
 .updlist li.done .ustat { background: var(--ok-soft); color: var(--ok); }
 .dl { min-width: 0; }
 .dishlink { border: 0; text-align: left; background: #F1F1EE; border-radius: 10px; padding: 5px 8px 5px 10px; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; font: inherit; font-weight: 600; color: inherit; }
-.dl > .s { margin-top: 4px; padding-left: 2px; }
+.dl > .s { margin-top: 5px; padding-left: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.dl > .s .pill { font-size: 11px; padding: 2px 7px; }
+.entry { grid-template-columns: 56px 1fr auto; align-items: start; padding: 10px 10px 10px 10px; }
+.entry .thumb { width: 56px; height: 56px; }
+.xdel { border: 0; background: none; color: var(--muted); font-size: 22px; line-height: 1; width: 32px; height: 32px; border-radius: 50%; margin: -2px -2px 0 0; }
+.xdel:active { background: #ECECE8; }
+.seg.sm { padding: 2px; }
+.seg.sm button { min-height: 32px; padding: 4px 11px; font-size: 13px; }
 .dishlink:active { background: #E6E6E2; }
 .dishlink .t { min-width: 0; font-size: 16px; line-height: 1.25; }
 .dishlink .chev { font-size: 20px; color: var(--muted); line-height: 1; }
@@ -1166,7 +1173,7 @@ function isCook(e) { return !e.kind || e.kind === 'recipe'; }
 function dayLabel(i) { return LANG === 'en' ? DAYS_LONG_EN[i] : DAYS_I[LANG][i]; }
 function planDate(i) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7 + i); return d; }
 function planEntryHtml(e, idx, i) {
-  const delBtn = n => `<button class="ghost" data-act="pdel" data-i="${idx}" aria-label="${esc(t('delAria', n))}">${t('del')}</button>`;
+  const delBtn = n => `<button class="xdel" data-act="pdel" data-i="${idx}" aria-label="${esc(t('delAria', n))}" title="${esc(t('del'))}">×</button>`;
   if (e.kind === 'out') return `<div class="entry kind-out"><div class="kicon" aria-hidden="true">${ICON.out}</div><div><div class="t">${t('outT')}</div>
     ${outPlace(e)}<label class="field slim"><span class="sr">${t('outPh')}</span><input type="text" data-act="pnote" data-i="${idx}" maxlength="400" placeholder="${esc(t('outPh'))}" value="${esc(e.note || '')}"></label>
     <a class="chip sm maps" href="${esc(mapsHref(e.note))}" target="_blank" rel="noopener">${ICON.pin || ''}${t('mapsBtn')}</a></div><span></span>
@@ -1174,14 +1181,12 @@ function planEntryHtml(e, idx, i) {
   const r = byId(e.id), v = r.versions[e.ver] || r.versions.orig;
   if (e.kind === 'leftover') {
     const src = S.plan.find(x => isCook(x) && x.id === e.id && x.day < i);
-    return `<div class="entry kind-lo">${cover(r, 'thumb')}<div class="dl"><button class="dishlink" data-act="open" data-id="${r.id}"><span class="t">${esc(t('loOf', title(r)))}</span><span class="chev" aria-hidden="true">›</span></button><div class="s">${src ? esc(t('loFrom', dayLabel(src.day))) + ' · ' : ''}${t('portionX', +e.portion || 1)}</div></div><span></span>
-    <div class="ctl"><div class="seg" role="group" aria-label="${t('loPortion')}">${[0.5, 0.8, 1, 1.5].map(p => `<button data-act="pport" data-i="${idx}" data-p="${p}" aria-pressed="${(+e.portion || 1) === p}">${p}</button>`).join('')}</div>
-    ${delBtn(t('loOf', title(r)))}</div></div>`;
+    return `<div class="entry kind-lo">${cover(r, 'thumb')}<div class="dl"><button class="dishlink" data-act="open" data-id="${r.id}"><span class="t">${esc(t('loOf', title(r)))}</span><span class="chev" aria-hidden="true">›</span></button><div class="s">${src ? esc(t('loFrom', dayLabel(src.day))) + ' · ' : ''}${t('portionX', +e.portion || 1)}</div></div>${delBtn(t('loOf', title(r)))}
+    <div class="ctl"><div class="seg sm" role="group" aria-label="${t('loPortion')}">${[0.5, 0.8, 1, 1.5].map(p => `<button data-act="pport" data-i="${idx}" data-p="${p}" aria-pressed="${(+e.portion || 1) === p}">${p}</button>`).join('')}</div></div></div>`;
   }
-  return `<div class="entry">${cover(r, 'thumb')}<div class="dl"><button class="dishlink" data-act="open" data-id="${r.id}"><span class="t">${esc(title(r))}</span><span class="chev" aria-hidden="true">›</span></button><div class="s">${t(e.ver === 'light' ? 'light' : 'orig')} · ${v.n.kcal} ${t('pp')}</div></div>${pill(v.status)}
-    <div class="ctl"><div class="seg" role="group" aria-label="${t('servings')}">${[1, 2, 4].map(s => `<button data-act="pserv" data-i="${idx}" data-s="${s}" aria-pressed="${e.servings === s}">${t('nPpl', s)}</button>`).join('')}</div>
-    ${r.versions.light ? `<button class="ghost" data-act="pver" data-i="${idx}">${t('switchTo', t(e.ver === 'light' ? 'orig' : 'light'))}</button>` : ''}
-    ${delBtn(title(r))}</div></div>`;
+  return `<div class="entry">${cover(r, 'thumb')}<div class="dl"><button class="dishlink" data-act="open" data-id="${r.id}"><span class="t">${esc(title(r))}</span><span class="chev" aria-hidden="true">›</span></button><div class="s">${v.n.kcal} ${t('pp')} ${pill(v.status)}</div></div>${delBtn(title(r))}
+    <div class="ctl"><div class="seg sm" role="group" aria-label="${t('servings')}">${[1, 2, 4].map(s => `<button data-act="pserv" data-i="${idx}" data-s="${s}" aria-pressed="${e.servings === s}">${t('nPpl', s)}</button>`).join('')}</div>
+    ${r.versions.light ? `<div class="seg sm" role="group" aria-label="${esc(t('version'))}">${['orig', 'light'].map(k => `<button data-act="${(e.ver || 'orig') === k ? 'noop' : 'pver'}" data-i="${idx}" aria-pressed="${(e.ver || 'orig') === k}">${t(k)}</button>`).join('')}</div>` : ''}</div></div>`;
 }
 // one day at a time, picked from a strip (or by swiping), like Cal AI; logging what you ate lives here too
 function viewPlan() {
