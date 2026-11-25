@@ -1629,7 +1629,7 @@ function viewToday() {
         ${ap.exercise_min != null ? `<p class="arow"><svg viewBox="0 0 24 24" aria-hidden="true">${ICON.walk}</svg><span>${esc(t('exMin', ap.exercise_min))}</span></p>` : ''}
         ${ap.resting_hr != null ? `<p class="arow">${ICON.heart}<span>${ap.resting_hr} bpm</span></p>` : ''}
         ${steps == null && burned == null ? `<p class="muted small">${t('noAct')}</p>` : ''}</section></div></div>`);
-    {
+    if (Object.values(S.health).some(x => x && x.oura)) {
       const cell = (lab, v, pct, col) => `<section class="acard sm"><span class="ah">${lab}</span><b class="an">${v}</b>${pct != null ? `<div class="mtrack"><i style="width:${Math.min(100, pct)}%;background:${col}"></i></div>` : ''}</section>`;
       const sl = ou.sleep_min != null ? `${Math.floor(ou.sleep_min / 60)}h ${ou.sleep_min % 60}m` : '–';
       pages.push(`<div class="pg"><span class="label">${t('recovH')}</span><div class="grid2">
