@@ -414,6 +414,11 @@ ul.log li:last-child { border-bottom: 0; }
 .lv ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .lv li { display: flex; justify-content: space-between; gap: 10px; font-size: 15px; } .lv li span { min-width: 0; overflow-wrap: anywhere; } .lv li b { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lv li b::after { content: ' kcal'; font-weight: 400; font-size: 12px; color: var(--muted, #6b6b6b); }
+.lv li.pl span { color: var(--muted, #6b6b6b); } .lv li em { font-style: normal; font-size: 11px; border: 1px dashed #b5b5b0; border-radius: 6px; padding: 1px 5px; margin-left: 4px; }
+.lv li .chip { margin-left: 6px; flex: none; white-space: nowrap; min-height: 30px; padding: 3px 10px; }
+.wol { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.wol li { display: flex; align-items: center; gap: 10px; } .wol li span { flex: 1; min-width: 0; } .wol li b { font-variant-numeric: tabular-nums; }
+.woform { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
 .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 60; }
 .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; background: var(--card, #fff); border-radius: 20px 20px 0 0; padding: 20px 18px calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; max-width: 640px; margin: 0 auto; box-shadow: 0 -6px 30px rgba(0,0,0,.18); }
 .sheet h2 { margin: 0; font-size: 20px; }
@@ -902,7 +907,7 @@ const Sync = (() => {
     if (error) return fail(error);
     clearLocal(); await afterLogin(st.user);
   }
-  function clearLocal() { S.plan = []; S.checked = {}; S.saved = {}; S.intake = []; S.goals = {}; S.health = {}; S.foods = []; S.weights = {}; save('weights', {}); save('foods', []); setOutbox([]); persist(); save('intake', []); save('goals', {}); save('health', {}); }
+  function clearLocal() { S.plan = []; S.checked = {}; S.saved = {}; S.intake = []; S.goals = {}; S.health = {}; S.foods = []; S.workouts = []; save('workouts', []); S.weights = {}; save('weights', {}); save('foods', []); setOutbox([]); persist(); save('intake', []); save('goals', {}); save('health', {}); }
 
   async function signOut() {
     if (channel) { sb.removeChannel(channel); channel = null; }
@@ -917,7 +922,7 @@ const Sync = (() => {
     const h = st.household.id, wk = weekStart();
     const since = new Date(); since.setDate(since.getDate() - 35);
     const since2 = new Date(); since2.setDate(since2.getDate() - 120);
-    const [plan, checks, favs, mem, health, foods, intake, wins, upds] = await Promise.all([
+    const [plan, checks, favs, mem, health, foods, intake, wins, upds, wos] = await Promise.all([
       sb.from('plan_entries').select('id, day, recipe_id, ver, servings, kind, note, portion').eq('household_id', h).eq('week_start', wk).order('updated_at'),
       sb.from('shopping_checks').select('item_key').eq('household_id', h).eq('week_start', wk),
       sb.from('favorites').select('user_id, recipe_id, rating'),
@@ -927,8 +932,9 @@ const Sync = (() => {
       sb.from('intake_logs').select('id, user_id, eaten_on, meal, recipe_id, ver, portion, label, kcal, protein_g, carbs_g, fat_g').gte('eaten_on', ymd(since)).order('created_at'),
       sb.from('weigh_ins').select('day, weight_kg, body_fat_pct').eq('user_id', st.user.id).gte('day', ymd(since2)),
       sb.from('recipe_updates').select('id, recipe_id, body, created_by, status, created_at').eq('household_id', h).order('created_at'),
+      sb.from('workouts').select('id, user_id, day, kind, minutes, kcal').gte('day', ymd(since)).order('created_at'),
     ]);
-    const err = plan.error || checks.error || favs.error || mem.error || intake.error || health.error || foods.error || wins.error || upds.error;
+    const err = plan.error || checks.error || favs.error || mem.error || intake.error || health.error || foods.error || wins.error || upds.error || wos.error;
     if (err) { st.status = 'offline'; rerender(); return; }
     S.plan = plan.data.filter(r => r.kind === 'out' || RECIPES.some(x => x.id === r.recipe_id)).map(r => ({ uid: r.id, id: r.recipe_id, ver: r.ver, servings: r.servings, day: r.day, kind: r.kind || 'recipe', note: r.note || '', portion: +r.portion || 1 }));
     S.checked = Object.fromEntries(checks.data.map(r => [r.item_key, true]));
@@ -941,6 +947,7 @@ const Sync = (() => {
     save('foods', S.foods);
     S.updates = upds.data.map(r => ({ id: r.id, recipe: r.recipe_id, body: r.body, by: r.created_by, status: r.status, at: r.created_at })); save('updates', S.updates);
     S.weights = {}; wins.data.forEach(r => { S.weights[r.day] = { kg: +r.weight_kg, bf: r.body_fat_pct != null ? +r.body_fat_pct : null }; }); save('weights', S.weights);
+    S.workouts = wos.data.map(r => ({ uid: r.id, user: r.user_id, date: r.day, kind: r.kind, min: r.minutes, kcal: r.kcal || 0 })); save('workouts', S.workouts);
     S.health = {};
     health.data.forEach(r => { (S.health[r.day] = S.health[r.day] || {})[r.source] = r; });
     save('intake', S.intake); save('goals', S.goals); save('health', S.health);
@@ -983,6 +990,8 @@ const Sync = (() => {
     if (type === 'food_delete') return sb.from('saved_foods').delete().eq('id', p);
     if (type === 'fav_add') return sb.from('favorites').upsert(typeof p === 'string' ? { user_id: me, recipe_id: p } : { user_id: me, recipe_id: p.id, rating: p.rating });
     if (type === 'weigh_upsert') return sb.from('weigh_ins').upsert({ user_id: me, day: p.day, weight_kg: p.kg, body_fat_pct: p.bf, updated_at: new Date().toISOString() });
+    if (type === 'workout_upsert') return sb.from('workouts').upsert({ id: p.uid, user_id: me, day: p.date, kind: p.kind, minutes: p.min, kcal: p.kcal });
+    if (type === 'workout_delete') return sb.from('workouts').delete().eq('id', p);
     if (type === 'weigh_delete') return sb.from('weigh_ins').delete().match({ user_id: me, day: p });
     if (type === 'upd_add') return sb.from('recipe_updates').upsert({ id: p.id, household_id: h, recipe_id: p.recipe, body: p.body });
     if (type === 'upd_del') return sb.from('recipe_updates').delete().eq('id', p);
@@ -1035,7 +1044,7 @@ const T = {
     ready: n => `备好 ${n}`, assume: '假设', s2: '02 / At the stove · 开火', steps: '步骤', s3: '03 / Plan · 安排', addTitle: '加入本周', pickDay: '选哪天', addFab: '加入本周', addedFab: d => `已加入${d}`, pickDayQ: '加到哪一天？', nDish: n => `${n} 道`, planCancelS: '取消',
     addBtn: (d, v, s) => `加入${d} · ${v} · ${s} 人份`, added: d => `已加入${d}，采购单已更新。`,
     planEyebrow: 'This week · 本周', planH: '一周晚饭', planSub: '每道菜单独选份数和版本，采购单跟着变。', switchTo: v => `换成${v}`, del: '删除',
-    delAria: n => `从计划里删除${n}`, none: '没安排', weekend: ' · 周末', planFoot: '剩菜和外食不进采购单。外食那天可以在下面的「记一餐」里拍照或手动记一笔。', addLo: '+ 剩菜', updH: '更新', updSub: '做完觉得哪里要改？用量、步骤、换食材、口味心得都写在这里，我会按这些更新菜谱。', updPh: '比如：酱油少放一半；烤 15 分钟就够', updSend: '提交', updDone: '已更新', updOpen: '待更新', updSaved: '已提交，下次更新菜谱时会处理。', updDelA: '删除这条', addDish: '+ 加一道菜', pickFor: d => `正在给${d}选菜：点一道菜，再点「加到${d}」`, pickCancel: '取消', dinnerH: '晚饭计划', logFuture: '到了那天就能在这里记录吃了什么。', editLog: '编辑', doneLog: '完成', nothingYet: '这天还没记。', loggedH: '已记录', addOut: '+ 外食', loOf: n => `剩菜 · ${n}`, loFrom: d => `${d}做的`, outT: '外食', outPh: '输入餐厅名搜索，或粘贴 Google Maps 链接', mapsBtn: 'Google Maps', mapsFind: '在 Google Maps 找', placeOk: '确认这家', placeAgain: '重新搜', placeEdit: '改', placeHint: '输入名字会出现搜索结果，选一家再确认；确认后点名字就直接打开这家店。找不到的话，也可以从 Google Maps 复制分享链接粘贴进来。', mapsHint: '在 Google Maps 里点「分享 → 复制链接」，粘贴到上面就行。', loPickH: '吃哪道的剩菜？', loPortion: '吃多少', portionX: p => `${p} 份`, loNone: '这周前几天还没安排菜。', cancelPick: '取消',
+    delAria: n => `从计划里删除${n}`, none: '没安排', weekend: ' · 周末', planFoot: '剩菜和外食不进采购单。外食那天可以在下面的「记一餐」里拍照或手动记一笔。', addLo: '+ 剩菜', updH: '更新', updSub: '做完觉得哪里要改？用量、步骤、换食材、口味心得都写在这里，我会按这些更新菜谱。', updPh: '比如：酱油少放一半；烤 15 分钟就够', updSend: '提交', updDone: '已更新', updOpen: '待更新', updSaved: '已提交，下次更新菜谱时会处理。', updDelA: '删除这条', addDish: '+ 加一道菜', pickFor: d => `正在给${d}选菜：点一道菜，再点「加到${d}」`, pickCancel: '取消', dinnerH: '晚饭计划', logFuture: '到了那天就能在这里记录吃了什么。', editLog: '编辑', doneLog: '完成', nothingYet: '这天还没记。', plTag: '计划', plAte: '吃了', loggedH: '已记录', addOut: '+ 外食', loOf: n => `剩菜 · ${n}`, loFrom: d => `${d}做的`, outT: '外食', outPh: '输入餐厅名搜索，或粘贴 Google Maps 链接', mapsBtn: 'Google Maps', mapsFind: '在 Google Maps 找', placeOk: '确认这家', placeAgain: '重新搜', placeEdit: '改', placeHint: '输入名字会出现搜索结果，选一家再确认；确认后点名字就直接打开这家店。找不到的话，也可以从 Google Maps 复制分享链接粘贴进来。', mapsHint: '在 Google Maps 里点「分享 → 复制链接」，粘贴到上面就行。', loPickH: '吃哪道的剩菜？', loPortion: '吃多少', portionX: p => `${p} 份`, loNone: '这周前几天还没安排菜。', cancelPick: '取消',
     shopEyebrow: 'Shopping · 采购', shopH: '采购单', shopStats: (d, n, x) => `${d} 道菜 · ${n} 项 · 已买 ${x}`, range: '采购范围', week: '全周', weekdays: '工作日', weekendR: '周末',
     pantry: '常备品：买之前先看看家里有没有。', selectAll: '全部打勾', unselectAll: '全部取消', shopEmpty: '这个范围里还没安排菜。去「本周」加几道。',
     shopFoot: '同一种食材、同一种单位会自动加在一起；勺和杯会换算合并，但不会把体积换成重量。米饭按生米算。', sep: '、',
@@ -1062,7 +1071,7 @@ const T = {
     ready: n => `${n} ready`, assume: 'Assumed', s2: '02 / At the stove', steps: 'Method', s3: '03 / Plan', addTitle: 'Add to this week', pickDay: 'Pick a day', addFab: 'Add to a day', addedFab: d => `Added to ${d}`, pickDayQ: 'Which day?', nDish: n => `${n} planned`, planCancelS: 'Cancel',
     addBtn: (d, v, s) => `Add to ${d} · ${v} · ${ser(s)}`, added: d => `Added to ${DAYS_LONG_EN[DAYS_I.en.indexOf(d)] || d}; shopping list updated.`,
     planEyebrow: 'This week', planH: 'Dinners this week', planSub: 'Pick servings and version for each dish; the shopping list follows.', switchTo: v => `Switch to ${v.toLowerCase()}`, del: 'Remove',
-    delAria: n => `Remove ${n} from the plan`, none: 'Nothing planned', weekend: ' · Weekend', planFoot: 'Leftovers and eating out don\u2019t add to the shopping list. On an eating-out day, log it below with a photo or by hand.', addLo: '+ Leftovers', updH: 'Update', updSub: 'Anything to change after cooking it? Amounts, steps, swaps, how it tasted: write it here and I’ll update the recipe.', updPh: 'e.g. half the soy sauce; 15 min in the oven is enough', updSend: 'Submit', updDone: 'Updated', updOpen: 'Waiting', updSaved: 'Submitted; it will be handled at the next recipe update.', updDelA: 'Delete this note', addDish: '+ Add a dish', pickFor: d => `Choosing a dish for ${d}: tap one, then “Add to ${d}”.`, pickCancel: 'Cancel', dinnerH: 'Dinner plan', logFuture: 'You can log what you ate here on the day.', editLog: 'Edit', doneLog: 'Done', nothingYet: 'Nothing logged for this day yet.', loggedH: 'Logged', addOut: '+ Eating out', loOf: n => `Leftovers · ${n}`, loFrom: d => `Cooked ${d}`, outT: 'Eating out', outPh: 'Type a restaurant name, or paste a Maps link', mapsBtn: 'Google Maps', mapsFind: 'Find on Google Maps', placeOk: 'Confirm this place', placeAgain: 'Search again', placeEdit: 'Change', placeHint: 'Start typing and pick from the results, then confirm; tapping the name then opens that place. If it isn\u2019t listed, paste a Google Maps share link instead.', mapsHint: 'In Google Maps tap Share → Copy link and paste it above.', loPickH: 'Leftovers of which dish?', loPortion: 'How much', portionX: p => `${p} ${p === 1 ? 'portion' : 'portions'}`, loNone: 'Nothing planned earlier this week yet.', cancelPick: 'Cancel',
+    delAria: n => `Remove ${n} from the plan`, none: 'Nothing planned', weekend: ' · Weekend', planFoot: 'Leftovers and eating out don\u2019t add to the shopping list. On an eating-out day, log it below with a photo or by hand.', addLo: '+ Leftovers', updH: 'Update', updSub: 'Anything to change after cooking it? Amounts, steps, swaps, how it tasted: write it here and I’ll update the recipe.', updPh: 'e.g. half the soy sauce; 15 min in the oven is enough', updSend: 'Submit', updDone: 'Updated', updOpen: 'Waiting', updSaved: 'Submitted; it will be handled at the next recipe update.', updDelA: 'Delete this note', addDish: '+ Add a dish', pickFor: d => `Choosing a dish for ${d}: tap one, then “Add to ${d}”.`, pickCancel: 'Cancel', dinnerH: 'Dinner plan', logFuture: 'You can log what you ate here on the day.', editLog: 'Edit', doneLog: 'Done', nothingYet: 'Nothing logged for this day yet.', plTag: 'planned', plAte: 'Ate it', loggedH: 'Logged', addOut: '+ Eating out', loOf: n => `Leftovers · ${n}`, loFrom: d => `Cooked ${d}`, outT: 'Eating out', outPh: 'Type a restaurant name, or paste a Maps link', mapsBtn: 'Google Maps', mapsFind: 'Find on Google Maps', placeOk: 'Confirm this place', placeAgain: 'Search again', placeEdit: 'Change', placeHint: 'Start typing and pick from the results, then confirm; tapping the name then opens that place. If it isn\u2019t listed, paste a Google Maps share link instead.', mapsHint: 'In Google Maps tap Share → Copy link and paste it above.', loPickH: 'Leftovers of which dish?', loPortion: 'How much', portionX: p => `${p} ${p === 1 ? 'portion' : 'portions'}`, loNone: 'Nothing planned earlier this week yet.', cancelPick: 'Cancel',
     shopEyebrow: 'Shopping', shopH: 'Shopping list', shopStats: (d, n, x) => `${d} ${d === 1 ? 'dish' : 'dishes'} · ${n} items · ${x} bought`, range: 'Shopping range', week: 'Whole week', weekdays: 'Weekdays', weekendR: 'Weekend',
     pantry: 'Pantry staples: check what you already have before buying.', selectAll: 'Check all', unselectAll: 'Uncheck all', shopEmpty: 'Nothing planned in this range yet. Add a few dishes in This week.',
     shopFoot: 'The same ingredient in the same unit adds up automatically; spoons and cups are combined, but volume is never converted to weight. Rice is counted uncooked.', sep: ', ',
@@ -1252,10 +1261,11 @@ function viewPlan() {
   }
   const adds = `<div class="dayadd"><button class="chip main" data-act="ppick" data-day="${i}">${t('addDish')}</button><button class="chip" data-act="plopen" data-day="${i}" aria-expanded="${S.loPick === i}">${t('addLo')}</button><button class="chip" data-act="pout" data-day="${i}">${t('addOut')}</button></div>`;
   const logged = S.intake.filter(e => e.user === me() && e.date === date);
-  const totK = logged.reduce((a, e) => a + (e.kcal || 0), 0);
-  const viewPart = `<section class="logview"><div class="row between"><span class="label">${t('loggedH')}${logged.length ? ` · ${totK} kcal` : ''}</span>${logged.length ? `<button class="ghost sm" data-act="logedit">${t('editLog')}</button>` : ''}</div>
-      ${logged.length ? MEALS.map(m => { const rows = logged.filter(e => e.meal === m && !SUPP_LABELS.has(e.label)); if (!rows.length) return '';
-        return `<div class="lv"><span class="lvm">${mealName(m)}</span><ul>${rows.map(e => `<li><span>${esc(entryTitle(e))}${e.portion && e.portion !== 1 ? ` × ${e.portion}` : ''}</span><b>${e.kcal}</b></li>`).join('')}</ul></div>`; }).join('') : `<p class="muted">${t('nothingYet')}</p>`}
+  const planned = plannedFor(me(), date), plK = planned.reduce((a, e) => a + e.kcal, 0);
+  const totK = logged.reduce((a, e) => a + (e.kcal || 0), 0) + plK;
+  const viewPart = `<section class="logview"><div class="row between"><span class="label">${t('loggedH')}${totK ? ` · ${totK} kcal` : ''}</span>${logged.length ? `<button class="ghost sm" data-act="logedit">${t('editLog')}</button>` : ''}</div>
+      ${logged.length || planned.length ? MEALS.map(m => { const rows = [...logged.filter(e => e.meal === m), ...planned.filter(e => e.meal === m)]; if (!rows.length) return '';
+        return `<div class="lv"><span class="lvm">${mealName(m)}</span><ul>${rows.map(e => `<li${e.planned ? ' class="pl"' : ''}><span>${esc(entryTitle(e))}${e.portion && e.portion !== 1 ? ` × ${e.portion}` : ''}${e.planned ? ` <em>${t('plTag')}</em>` : ''}</span><b>${e.kcal}</b>${e.planned ? `<button class="chip sm ok" data-act="plog" data-id="${e.recipe_id}" data-v="${e.pv}" data-p="${e.pp}" data-date="${date}">✓ ${t('plAte')}</button>` : ''}</li>`).join('')}</ul></div>`; }).join('') : `<p class="muted">${t('nothingYet')}</p>`}
       <button class="action" data-act="logedit">＋ ${t('logJump')}</button>${S.logMsg ? `<span class="toast" role="status">${esc(S.logMsg)}</span>` : ''}</section>`;
   const logPart = i > todayIdx ? null : !S.logEdit ? viewPart
     : `<div class="row between"><span class="label">${t('loggedH')}</span><button class="ghost sm" data-act="logdone">${t('doneLog')}</button></div>` + `<section class="meals">${MEALS.map(m => { const rows = logged.filter(e => e.meal === m), kc = rows.reduce((a, e) => a + (e.kcal || 0), 0);
@@ -1534,7 +1544,7 @@ function outBody(e, idx) {
 // Entries: { uid, user, date 'YYYY-MM-DD', meal, recipe_id, ver, portion, label, kcal, P, C, F }
 // user is the Supabase user id in the synced app, 'me' in the preview.
 Object.assign(T.zh, {
-  tToday: '今天', weekH: '本周热量', weekLogged: n => `记录了 ${n} 天`, weekAvg: '日均热量', weekOnK: '没超热量的天', weekOnP: '蛋白达标的天', bodyFat: '体脂率', burnedB: n => `运动 +${n}`, comboBtn: '组合一餐', comboH: '组合一餐', comboHint: '用上面的搜索、扫码、常吃的或计划里的菜加进来，每加一样都会放到这里；加完一起记。', comboEmpty: '还没有加东西。', comboName: '给这顿起个名字（存到常吃的，下次一键记）', comboLog: n => `记这一餐 · ${n} kcal`, comboCancel: '取消组合', comboAdd: '加到这一餐', mealAdd: '+ 添加', mealNone: '还没记', macOver: n => `${n}超出`, stepsH: '步数', burnedH: '消耗热量', exMin: n => `运动 ${n} 分钟`, recovH: '恢复（Oura）', noAct: '今天还没有运动数据', pageN: (i, n) => `第 ${i} / ${n} 页`, swipeHint: '左右滑动看更多', wH: '体重', wLb: '体重 lb', wBf: '体脂 %', wSave: '记录', wLogBtn: '记体重', wUpdate: '更新', wDel: '删除这天的体重', wSaved: '已记录。', wBad: '请输入 50–550 之间的体重（lb）。', wTrend: (t, c) => `趋势 ${t} lb${c != null ? ` · 每周 ${c > 0 ? '+' : ''}${c} lb` : ''}`, wLast: d => `最近一次：${d}`, wNone: '还没有记录。每天早上空腹称一次最准。', wWeek: n => `本周 ${n}/7 天`, wStreak: n => `连续 ${n} 天`, w30: '过去 30 天', todayEyebrow: 'Today · 今天', kLeft: '还能吃', kOver: '超出目标', kEaten: '已吃热量', eatGoal: (e, g) => `已吃 ${e} · 目标 ${g}`, macLeft: n => `${n}还差`, macEaten: n => `${n}已吃`, logJump: '记一餐', goalSet: '在「我」里设每天的目标', eaten: '已吃', left: n => `还差 ${n}`, over: n => `超了 ${n}`,
+  tToday: '今天', plIncl: n => `含晚饭计划 ${n} kcal`, woH: '运动', woAdd: '记运动', woNone: '今天没有手动记的运动。Apple Watch 记到的会自动算进去。', woMin: '多少分钟', woKcal: '消耗（kcal，可改）', woHint: '热量按类型、时长和你最近的体重估算。只记 Apple Watch 没记到的，免得重复。', woSave: '保存', minS: '分钟', wo_walk: '散步', wo_run: '跑步', wo_bike: '骑车', wo_strength: '力量', wo_yoga: '瑜伽', wo_swim: '游泳', wo_hiit: 'HIIT', wo_other: '其他', weekH: '本周热量', weekLogged: n => `记录了 ${n} 天`, weekAvg: '日均热量', weekOnK: '没超热量的天', weekOnP: '蛋白达标的天', bodyFat: '体脂率', burnedB: n => `运动 +${n}`, comboBtn: '组合一餐', comboH: '组合一餐', comboHint: '用上面的搜索、扫码、常吃的或计划里的菜加进来，每加一样都会放到这里；加完一起记。', comboEmpty: '还没有加东西。', comboName: '给这顿起个名字（存到常吃的，下次一键记）', comboLog: n => `记这一餐 · ${n} kcal`, comboCancel: '取消组合', comboAdd: '加到这一餐', mealAdd: '+ 添加', mealNone: '还没记', macOver: n => `${n}超出`, stepsH: '步数', burnedH: '消耗热量', exMin: n => `运动 ${n} 分钟`, recovH: '恢复（Oura）', noAct: '今天还没有运动数据', pageN: (i, n) => `第 ${i} / ${n} 页`, swipeHint: '左右滑动看更多', wH: '体重', wLb: '体重 lb', wBf: '体脂 %', wSave: '记录', wLogBtn: '记体重', wUpdate: '更新', wDel: '删除这天的体重', wSaved: '已记录。', wBad: '请输入 50–550 之间的体重（lb）。', wTrend: (t, c) => `趋势 ${t} lb${c != null ? ` · 每周 ${c > 0 ? '+' : ''}${c} lb` : ''}`, wLast: d => `最近一次：${d}`, wNone: '还没有记录。每天早上空腹称一次最准。', wWeek: n => `本周 ${n}/7 天`, wStreak: n => `连续 ${n} 天`, w30: '过去 30 天', todayEyebrow: 'Today · 今天', kLeft: '还能吃', kOver: '超出目标', kEaten: '已吃热量', eatGoal: (e, g) => `已吃 ${e} · 目标 ${g}`, macLeft: n => `${n}还差`, macEaten: n => `${n}已吃`, logJump: '记一餐', goalSet: '在「我」里设每天的目标', eaten: '已吃', left: n => `还差 ${n}`, over: n => `超了 ${n}`,
   protein: '蛋白质', carbs: '碳水', fat: '脂肪', mealB: '早餐', mealL: '午餐', mealD: '晚餐', mealS: '加餐', nothing: '还没记录',
   logTitle: '记一餐', fromPlan: '这天计划里的', noPlanToday: '今天菜单上没有菜。可以在食谱里打开一道菜记录，或者手填。',
   other: '手填其他食物', foodName: '吃了什么', kcalL: '热量 kcal', proteinL: '蛋白质 g', carbsL: '碳水 g', fatL: '脂肪 g', portion: '份量', meal: '哪一餐',
@@ -1564,7 +1574,7 @@ Object.assign(T.zh, {
 Object.assign(T.en, {
   tToday: 'Today', todayEyebrow: 'Today', goalSet: 'Set daily goals in Me', eaten: 'Eaten', left: n => `${n} to go`, over: n => `${n} over`,
   protein: 'Protein', carbs: 'Carbs', fat: 'Fat', mealB: 'Breakfast', mealL: 'Lunch', mealD: 'Dinner', mealS: 'Snack', nothing: 'Nothing logged yet',
-  logTitle: 'Log a meal', weekH: 'This week', weekLogged: n => `${n} ${n === 1 ? 'day' : 'days'} logged`, weekAvg: 'Avg per day', weekOnK: 'Within calories', weekOnP: 'Protein hit', bodyFat: 'Body fat', burnedB: n => `+${n} burned`, comboBtn: 'Build a meal', comboH: 'Building a meal', comboHint: 'Add things with search, scan, My foods or the plan above; each one lands here, then log them together.', comboEmpty: 'Nothing added yet.', comboName: 'Name this meal (saved to My foods for one-tap next time)', comboLog: n => `Log this meal · ${n} kcal`, comboCancel: 'Cancel', comboAdd: 'Add to this meal', mealAdd: '+ Add', mealNone: 'Nothing yet', macOver: n => `${n} over`, stepsH: 'Steps', burnedH: 'Calories burned', exMin: n => `${n} min exercise`, recovH: 'Recovery (Oura)', noAct: 'No activity data for this day yet', pageN: (i, n) => `Page ${i} of ${n}`, swipeHint: 'Swipe for more', wH: 'Weight', wLb: 'Weight (lb)', wBf: 'Body fat %', wSave: 'Log', wLogBtn: 'Log weight', wUpdate: 'Update', wDel: 'Delete this day’s weight', wSaved: 'Logged.', wBad: 'Enter a weight between 50 and 550 lb.', wTrend: (t, c) => `Trend ${t} lb${c != null ? ` · ${c > 0 ? '+' : ''}${c} lb / week` : ''}`, wLast: d => `Last: ${d}`, wNone: 'Nothing logged yet. Weigh in the morning before eating for the steadiest numbers.', wWeek: n => `${n}/7 this week`, wStreak: n => `${n}-day streak`, w30: 'Last 30 days', kLeft: 'Calories left', kOver: 'Over goal', kEaten: 'Calories eaten', eatGoal: (e, g) => `${e} eaten · goal ${g}`, macLeft: n => `${n} left`, macEaten: n => `${n} eaten`, logJump: 'Log a meal', fromPlan: 'On this day’s plan', noPlanToday: 'Nothing planned today. Open a recipe to log it, or enter something by hand.',
+  logTitle: 'Log a meal', plIncl: n => `Includes planned dinner ${n} kcal`, woH: 'Exercise', woAdd: 'Add exercise', woNone: 'No manual exercise today. Whatever your Apple Watch records is counted automatically.', woMin: 'Minutes', woKcal: 'Burned (kcal, editable)', woHint: 'Estimated from the type, how long, and your latest weight. Only add what the Watch missed, so it isn\u2019t counted twice.', woSave: 'Save', minS: 'min', wo_walk: 'Walk', wo_run: 'Run', wo_bike: 'Cycling', wo_strength: 'Strength', wo_yoga: 'Yoga', wo_swim: 'Swim', wo_hiit: 'HIIT', wo_other: 'Other', weekH: 'This week', weekLogged: n => `${n} ${n === 1 ? 'day' : 'days'} logged`, weekAvg: 'Avg per day', weekOnK: 'Within calories', weekOnP: 'Protein hit', bodyFat: 'Body fat', burnedB: n => `+${n} burned`, comboBtn: 'Build a meal', comboH: 'Building a meal', comboHint: 'Add things with search, scan, My foods or the plan above; each one lands here, then log them together.', comboEmpty: 'Nothing added yet.', comboName: 'Name this meal (saved to My foods for one-tap next time)', comboLog: n => `Log this meal · ${n} kcal`, comboCancel: 'Cancel', comboAdd: 'Add to this meal', mealAdd: '+ Add', mealNone: 'Nothing yet', macOver: n => `${n} over`, stepsH: 'Steps', burnedH: 'Calories burned', exMin: n => `${n} min exercise`, recovH: 'Recovery (Oura)', noAct: 'No activity data for this day yet', pageN: (i, n) => `Page ${i} of ${n}`, swipeHint: 'Swipe for more', wH: 'Weight', wLb: 'Weight (lb)', wBf: 'Body fat %', wSave: 'Log', wLogBtn: 'Log weight', wUpdate: 'Update', wDel: 'Delete this day’s weight', wSaved: 'Logged.', wBad: 'Enter a weight between 50 and 550 lb.', wTrend: (t, c) => `Trend ${t} lb${c != null ? ` · ${c > 0 ? '+' : ''}${c} lb / week` : ''}`, wLast: d => `Last: ${d}`, wNone: 'Nothing logged yet. Weigh in the morning before eating for the steadiest numbers.', wWeek: n => `${n}/7 this week`, wStreak: n => `${n}-day streak`, w30: 'Last 30 days', kLeft: 'Calories left', kOver: 'Over goal', kEaten: 'Calories eaten', eatGoal: (e, g) => `${e} eaten · goal ${g}`, macLeft: n => `${n} left`, macEaten: n => `${n} eaten`, logJump: 'Log a meal', fromPlan: 'On this day’s plan', noPlanToday: 'Nothing planned today. Open a recipe to log it, or enter something by hand.',
   other: 'Something else', foodName: 'What you ate', kcalL: 'Calories (kcal)', proteinL: 'Protein (g)', carbsL: 'Carbs (g)', fatL: 'Fat (g)', portion: 'Portion', meal: 'Meal',
   log: 'Log it', logged: 'Logged for today.', remove: 'Remove', goalsH: 'Daily goals', kcalGoal: 'Calories (kcal)', proteinGoal: 'Protein (g)', saveGoals: 'Save goals',
   goalsSaved: 'Goals saved.', goalsHint: 'Only used to show progress. Your partner can see your log and goals too.', logRecipe: 'Log to today’s food', portionN: p => `${p} portion${p === 1 ? '' : 's'}`,
@@ -1598,7 +1608,7 @@ S.intake = load('intake', []);
 S.goals = load('goals', {});          // { [user]: { kcal, protein } }
 S.foods = load('foods', []);
 S.alsoPartner = load('alsoPartner', false);
-Object.assign(S, { foodQ: '', dayOff: 0, whose: null, logForm: null, logMsg: '', photo: null, ingest: null, health: load('health', {}), weights: load('weights', {}), wMsg: '' });
+Object.assign(S, { foodQ: '', dayOff: 0, whose: null, logForm: null, logMsg: '', photo: null, ingest: null, health: load('health', {}), weights: load('weights', {}), wMsg: '', workouts: load('workouts', []), woForm: null });
 const persistFit = () => { save('intake', S.intake); save('goals', S.goals); save('foods', S.foods); };
 
 const me = () => (Sync.enabled && Sync.st.user ? Sync.st.user.id : 'me');
@@ -1624,7 +1634,7 @@ function addEntry(e, single) {
   return null;
 }
 function entryTitle(e) {
-  if (!e.recipe_id) return e.label;
+  if (!e.recipe_id) { const sp = typeof SUPPS !== 'undefined' && SUPPS.find(x => x.label === e.label); return sp ? (sp[LANG] || sp.en) : e.label; }
   const r = byId(e.recipe_id); if (!r) return e.label || e.recipe_id;
   return title(r) + (r.versions.light ? ` · ${t(e.ver === 'light' ? 'light' : 'orig')}` : '');
 }
@@ -1651,19 +1661,44 @@ function suppCard(rows, mine) {
     <div class="suppgrid">${SUPPS.map(x => { const on = taken.has(x.label); return `<button class="supp${on ? ' on' : ''}" data-act="supp" data-k="${x.k}" aria-pressed="${on}" ${mine ? '' : 'disabled'}>
       <span class="sck" aria-hidden="true">${on ? '✓' : ''}</span><span class="snm">${esc(x[LANG] || x.en)}</span><span class="sds">${esc(x.dose[LANG] || x.dose.en)}${x.P ? ` · ${x.P} g ${t('protein').toLowerCase()}` : ''}</span></button>`; }).join('')}</div></section>`;
 }
+// dinner planned for a day this week counts toward that day until something is logged as dinner
+function plannedFor(who, ds) {
+  const today = ymdOf(new Date()); if (ds > today) return [];
+  const d0 = new Date(ds + 'T12:00:00'); if (mondayOf(d0) !== mondayOf(new Date())) return [];
+  const wd = (d0.getDay() + 6) % 7, eaten = S.intake.filter(e => e.user === who && e.date === ds);
+  if (eaten.some(e => e.meal === 'dinner')) return [];
+  return S.plan.filter(e => e.day === wd && (isCook(e) || e.kind === 'leftover') && byId(e.id) && !eaten.some(x => x.recipe_id === e.id))
+    .map(e => ({ ...recipeEntry(byId(e.id), e.ver, e.kind === 'leftover' ? (+e.portion || 1) : 1, 'dinner', ds), user: who, planned: true, pv: e.ver, pp: e.kind === 'leftover' ? (+e.portion || 1) : 1 }));
+}
+// manual workouts (for when the Watch wasn't started): MET × kg × hours, minus the resting part, like Apple's "active" calories
+const WO_KINDS = [['walk', 3.5], ['run', 9.8], ['bike', 7.5], ['strength', 5], ['yoga', 2.5], ['swim', 7], ['hiit', 8], ['other', 4]];
+function woKg() { const last = Object.keys(S.weights).sort().pop(); return last ? +S.weights[last].kg : 60; }
+function woEstimate(kind, min) { const met = (WO_KINDS.find(k => k[0] === kind) || WO_KINDS[7])[1]; return Math.max(0, Math.round((met - 1) * woKg() * (+min || 0) / 60)); }
+function workoutsFor(who, ds) { return (S.workouts || []).filter(w => w.user === who && w.date === ds); }
+function woCard(who, ds, mine) {
+  const list = workoutsFor(who, ds), f = S.woForm;
+  const items = list.length ? `<ul class="wol">${list.map(w => `<li><span>${esc(t('wo_' + w.kind) || w.kind)}${w.min ? ` · ${w.min} ${t('minS')}` : ''}</span><b>${w.kcal} kcal</b>${mine ? `<button class="xdel" data-act="wodel" data-u="${w.uid}" aria-label="${t('remove')}">×</button>` : ''}</li>`).join('')}</ul>` : `<p class="muted small">${t('woNone')}</p>`;
+  const form = mine && f ? `<div class="woform"><div class="chips">${WO_KINDS.map(([k]) => `<button class="chip sm" data-act="wokind" data-k="${k}" aria-pressed="${f.kind === k}">${t('wo_' + k)}</button>`).join('')}</div>
+      <div class="two"><label class="field"><span>${t('woMin')}</span><input id="wo-min" type="number" inputmode="numeric" min="1" max="600" value="${esc(f.min || '')}"></label>
+      <label class="field"><span>${t('woKcal')}</span><input id="wo-kcal" type="number" inputmode="numeric" min="0" max="5000" value="${esc(f.kcal ?? '')}"></label></div>
+      <p class="muted small">${t('woHint')}</p>
+      <div class="row"><button class="action" data-act="wosave">${t('woSave')}</button><button class="ghost" data-act="wocancel">${t('pickCancel')}</button></div></div>` : '';
+  return `<section class="panel"><div class="row between"><span class="label">${t('woH')}</span>${mine && !f ? `<button class="ghost sm" data-act="woadd">＋ ${t('woAdd')}</button>` : ''}</div>${items}${form}</section>`;
+}
 function viewToday() {
   const d = dateAt(S.dayOff), date = ymdOf(d), who = S.whose || me(), mine = who === me();
   const people = Sync.enabled && Sync.st.members.length > 1 ? Sync.st.members : null;
-  const rows = S.intake.filter(e => e.user === who && e.date === date);
-  const sum = k => rows.reduce((x, e) => x + (e[k] || 0), 0);
+  const rows = S.intake.filter(e => e.user === who && e.date === date), planned = plannedFor(who, date), all = [...rows, ...planned];
+  const sum = k => all.reduce((x, e) => x + (e[k] || 0), 0), plK = planned.reduce((x, e) => x + e.kcal, 0);
+  const manualK = workoutsFor(who, date).reduce((x, w) => x + (w.kcal || 0), 0);
   const g = S.goals[who] || {}, tg = targetsFor(who, date);
   const name = people ? ((people.find(m => m.user_id === who) || {}).display_name || '') : '';
   const kc = sum('kcal'), gk = tg.kcal, over = gk && kc > gk;
   const big = gk ? Math.abs(gk - kc) : kc;
   const h = mine ? (S.health[date] || {}) : {}, ap = h.apple || {}, ou = h.oura || {};
   const calCard = `<section class="sumcard"><div><b class="big">${big.toLocaleString()}</b>
-      <span class="sl">${gk ? t(over ? 'kOver' : 'kLeft') : t('kEaten')}${ap.active_kcal ? ` <span class="burn">${ICON.flameS}${esc(t('burnedB', ap.active_kcal))}</span>` : ''}</span>
-      ${gk ? `<span class="ss">${t('eatGoal', kc.toLocaleString(), gk.toLocaleString())}</span>` : ''}</div>
+      <span class="sl">${gk ? t(over ? 'kOver' : 'kLeft') : t('kEaten')}${(ap.active_kcal || 0) + manualK ? ` <span class="burn">${ICON.flameS}${esc(t('burnedB', (ap.active_kcal || 0) + manualK))}</span>` : ''}</span>
+      ${gk ? `<span class="ss">${t('eatGoal', kc.toLocaleString(), gk.toLocaleString())}</span>` : ''}${plK ? `<span class="ss">${esc(t('plIncl', plK))}</span>` : ''}</div>
     ${ringSvg(104, 10, gk ? kc / gk : 0, over ? 'var(--over)' : 'var(--ink)', ICON.flame, gk ? Math.round(kc / gk * 100) + '%' : kc + ' kcal', '#F3F3F1')}</section>`;
   const mac = [['P', t('protein'), tg.P, 'var(--p)', ICON.mProt, '#FDEDEA'], ['C', t('carbs'), tg.C, 'var(--c)', ICON.mCarb, '#FCF3DE'], ['F', t('fat'), tg.F, 'var(--f)', ICON.mFat, '#E9F0FC']].map(([k, n, goal, col, ic, tint]) => {
     const v = sum(k), over2 = goal && v > goal;
@@ -1672,7 +1707,7 @@ function viewToday() {
   }).join('');
   const pages = [`<div class="pg">${calCard}<div class="macs">${mac}</div></div>`];
   if (mine) {
-    const steps = ap.steps, burned = ap.active_kcal;
+    const steps = ap.steps, burned = ap.active_kcal != null || manualK ? (ap.active_kcal || 0) + manualK : null;
     pages.push(`<div class="pg"><div class="two-cards">
       <section class="acard"><span class="ah">${t('stepsH')}</span><b class="an">${steps != null ? steps.toLocaleString() : '–'}<small>/10,000</small></b>
         ${ringSvg(104, 10, steps ? steps / 10000 : 0, 'var(--ink)', ICON.walk, `${steps || 0} / 10000`, '#F3F3F1')}</section>
@@ -1699,7 +1734,7 @@ function viewToday() {
       <div class="navbtns"><button class="round" data-act="dprev" aria-label="${t('prevDay')}">‹</button><button class="round" data-act="dnext" aria-label="${t('nextDay')}">›</button></div>${langBtn()}</div>
       ${syncLine()}</div>
     ${weekStrip(who)}${whoSeg}${!mine ? `<p class="muted">${esc(t('readOnly', name))}</p>` : ''}
-    ${summary}${weekCard(who, d)}${mine ? weightCard(d, date) : ''}
+    ${summary}${weekCard(who, d)}${mine ? weightCard(d, date) : ''}${woCard(who, date, mine)}
     ${mine ? `<button class="fab" data-act="logjump" aria-label="${t('logJump')}"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>` : ''}</main>`;
 }
 function dayShort(d) { return LANG === 'en' ? DAYS_LONG_EN[(d.getDay() + 6) % 7] : DAYS_I.zh[(d.getDay() + 6) % 7]; }
@@ -1771,6 +1806,17 @@ function logPanel(d, date) {
 
 // clicks for this tab; returns true when handled
 function fitnessClick(a, b) {
+  if (a === 'woadd') { S.woForm = { kind: 'walk', min: '', kcal: '' }; render(); return true; }
+  if (a === 'wocancel') { S.woForm = null; render(); return true; }
+  if (a === 'wokind') { const m = (document.getElementById('wo-min') || {}).value || S.woForm.min; S.woForm = { kind: b.dataset.k, min: m, kcal: m ? woEstimate(b.dataset.k, m) : '' }; render(); return true; }
+  if (a === 'wosave') {
+    const min = Math.round(+(document.getElementById('wo-min') || {}).value || 0), kc0 = (document.getElementById('wo-kcal') || {}).value;
+    if (!(min > 0)) { const el = document.getElementById('wo-min'); if (el) el.focus(); return true; }
+    const w = { uid: Sync.newId(), user: me(), date: ymdOf(dateAt(S.dayOff)), kind: S.woForm.kind, min, kcal: kc0 !== '' && kc0 != null ? Math.max(0, Math.round(+kc0)) : woEstimate(S.woForm.kind, min) };
+    S.workouts = [...(S.workouts || []), w]; save('workouts', S.workouts); Sync.op('workout_upsert', w); S.woForm = null; render(); return true;
+  }
+  if (a === 'wodel') { const w = (S.workouts || []).find(x => x.uid === b.dataset.u); S.workouts = (S.workouts || []).filter(x => x !== w); save('workouts', S.workouts); if (w) Sync.op('workout_delete', w.uid); render(); return true; }
+  if (a === 'plog') { const ds = b.dataset.date; const e = recipeEntry(byId(b.dataset.id), b.dataset.v, +b.dataset.p || 1, 'dinner', ds); addEntry(e, true); render(); return true; }
   if (a === 'supp') {
     const x = SUPPS.find(y => y.k === b.dataset.k); if (!x) return false;
     const date = ymdOf(dateAt(S.dayOff)), i = S.intake.findIndex(e => e.user === me() && e.date === date && e.label === x.label);
@@ -1946,6 +1992,13 @@ function healthPanel() {
     <details><summary>${t('ahSteps')}</summary><ol class="steps small">${steps.map(x => `<li><span>${esc(x)}</span></li>`).join('')}</ol></details></section>`;
 }
 
+// manual exercise: fill in the estimate as the minutes are typed, unless the calories were edited by hand
+document.addEventListener('input', ev => {
+  if (ev.target.id === 'wo-kcal' && S.woForm) { S.woForm.kcalEdited = true; S.woForm.kcal = ev.target.value; return; }
+  if (ev.target.id !== 'wo-min' || !S.woForm) return;
+  S.woForm.min = ev.target.value; const k = document.getElementById('wo-kcal');
+  if (k && !S.woForm.kcalEdited) { k.value = ev.target.value ? woEstimate(S.woForm.kind, ev.target.value) : ''; S.woForm.kcal = k.value; }
+});
 // search inside My foods without losing the keyboard
 document.addEventListener('input', ev => {
   if (ev.target.id !== 'l-fq') return;
@@ -2098,7 +2151,7 @@ function weightTrend(upTo) {
 function weekCard(who, d) {
   const mon = new Date(mondayOf(d) + 'T12:00:00'), today = ymdOf(new Date());
   const days = [...Array(7)].map((_, k) => { const x = new Date(mon); x.setDate(x.getDate() + k); const ds = ymdOf(x);
-    const rows = S.intake.filter(e => e.user === who && e.date === ds), kc = rows.reduce((a, e) => a + (e.kcal || 0), 0), P = rows.reduce((a, e) => a + (e.P || 0), 0);
+    const rows = [...S.intake.filter(e => e.user === who && e.date === ds), ...plannedFor(who, ds)], kc = rows.reduce((a, e) => a + (e.kcal || 0), 0), P = rows.reduce((a, e) => a + (e.P || 0), 0);
     return { ds, k, kc, P, tg: targetsFor(who, ds), n: rows.length, fut: ds > today }; });
   const logged = days.filter(x => x.n && !x.fut);
   const max = Math.max(1, ...days.map(x => Math.max(x.kc, x.tg.kcal || 0))) * 1.08;
