@@ -314,6 +314,8 @@ ul.log li:last-child { border-bottom: 0; }
 .check input, .ing input { accent-color: var(--ink); }
 .panel > .label, .tcard .label { font-size: 13px; font-weight: 600; color: var(--muted); }
 /* Today */
+.maps { text-decoration: none; color: var(--ink); align-self: flex-start; margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; }
+.placelink { display: inline-block; margin-top: 4px; font-weight: 700; color: var(--f); text-decoration: none; }
 .meals { display: grid; gap: 10px; }
 .mealbox { background: var(--ivory); border-radius: 16px; padding: 10px 14px; box-shadow: var(--shadow); }
 .mhead { display: flex; align-items: center; gap: 10px; } .mhead h3 { margin: 0; flex: 1; font-size: 15px; }
@@ -967,7 +969,7 @@ const T = {
     ready: n => `备好 ${n}`, assume: '假设', s2: '02 / At the stove · 开火', steps: '步骤', s3: '03 / Plan · 安排', addTitle: '加入本周', pickDay: '选哪天',
     addBtn: (d, v, s) => `加入${d} · ${v} · ${s} 人份`, added: d => `已加入${d}，采购单已更新。`,
     planEyebrow: 'This week · 本周', planH: '一周晚饭', planSub: '每道菜单独选份数和版本，采购单跟着变。', switchTo: v => `换成${v}`, del: '删除',
-    delAria: n => `从计划里删除${n}`, none: '没安排', weekend: ' · 周末', planFoot: '剩菜和外食不进采购单。外食那天可以在下面的「记一餐」里拍照或手动记一笔。', addLo: '+ 剩菜', updH: '更新', updSub: '做完觉得哪里要改？用量、步骤、换食材、口味心得都写在这里，我会按这些更新菜谱。', updPh: '比如：酱油少放一半；烤 15 分钟就够', updSend: '提交', updDone: '已更新', updOpen: '待更新', updSaved: '已提交，下次更新菜谱时会处理。', updDelA: '删除这条', addDish: '+ 加一道菜', pickFor: d => `正在给${d}选菜：点一道菜，再点「加到${d}」`, pickCancel: '取消', dinnerH: '晚饭计划', logFuture: '到了那天就能在这里记录吃了什么。', loggedH: '已记录', addOut: '+ 外食', loOf: n => `剩菜 · ${n}`, loFrom: d => `${d}做的`, outT: '外食', outPh: '去哪吃？（可选）', loPickH: '吃哪道的剩菜？', loPortion: '吃多少', portionX: p => `${p} 份`, loNone: '这周前几天还没安排菜。', cancelPick: '取消',
+    delAria: n => `从计划里删除${n}`, none: '没安排', weekend: ' · 周末', planFoot: '剩菜和外食不进采购单。外食那天可以在下面的「记一餐」里拍照或手动记一笔。', addLo: '+ 剩菜', updH: '更新', updSub: '做完觉得哪里要改？用量、步骤、换食材、口味心得都写在这里，我会按这些更新菜谱。', updPh: '比如：酱油少放一半；烤 15 分钟就够', updSend: '提交', updDone: '已更新', updOpen: '待更新', updSaved: '已提交，下次更新菜谱时会处理。', updDelA: '删除这条', addDish: '+ 加一道菜', pickFor: d => `正在给${d}选菜：点一道菜，再点「加到${d}」`, pickCancel: '取消', dinnerH: '晚饭计划', logFuture: '到了那天就能在这里记录吃了什么。', loggedH: '已记录', addOut: '+ 外食', loOf: n => `剩菜 · ${n}`, loFrom: d => `${d}做的`, outT: '外食', outPh: '餐厅名，或粘贴 Google Maps 分享链接', mapsBtn: 'Google Maps', mapsHint: '在 Google Maps 里点「分享 → 复制链接」，粘贴到上面就行。', loPickH: '吃哪道的剩菜？', loPortion: '吃多少', portionX: p => `${p} 份`, loNone: '这周前几天还没安排菜。', cancelPick: '取消',
     shopEyebrow: 'Shopping · 采购', shopH: '采购单', shopStats: (d, n, x) => `${d} 道菜 · ${n} 项 · 已买 ${x}`, range: '采购范围', week: '全周', weekdays: '工作日', weekendR: '周末',
     pantry: '常备品：买之前先看看家里有没有。', selectAll: '全部打勾', unselectAll: '全部取消', shopEmpty: '这个范围里还没安排菜。去「本周」加几道。',
     shopFoot: '同一种食材、同一种单位会自动加在一起；勺和杯会换算合并，但不会把体积换成重量。米饭按生米算。', sep: '、',
@@ -994,7 +996,7 @@ const T = {
     ready: n => `${n} ready`, assume: 'Assumed', s2: '02 / At the stove', steps: 'Method', s3: '03 / Plan', addTitle: 'Add to this week', pickDay: 'Pick a day',
     addBtn: (d, v, s) => `Add to ${d} · ${v} · ${ser(s)}`, added: d => `Added to ${DAYS_LONG_EN[DAYS_I.en.indexOf(d)] || d}; shopping list updated.`,
     planEyebrow: 'This week', planH: 'Dinners this week', planSub: 'Pick servings and version for each dish; the shopping list follows.', switchTo: v => `Switch to ${v.toLowerCase()}`, del: 'Remove',
-    delAria: n => `Remove ${n} from the plan`, none: 'Nothing planned', weekend: ' · Weekend', planFoot: 'Leftovers and eating out don\u2019t add to the shopping list. On an eating-out day, log it below with a photo or by hand.', addLo: '+ Leftovers', updH: 'Update', updSub: 'Anything to change after cooking it? Amounts, steps, swaps, how it tasted: write it here and I’ll update the recipe.', updPh: 'e.g. half the soy sauce; 15 min in the oven is enough', updSend: 'Submit', updDone: 'Updated', updOpen: 'Waiting', updSaved: 'Submitted; it will be handled at the next recipe update.', updDelA: 'Delete this note', addDish: '+ Add a dish', pickFor: d => `Choosing a dish for ${d}: tap one, then “Add to ${d}”.`, pickCancel: 'Cancel', dinnerH: 'Dinner plan', logFuture: 'You can log what you ate here on the day.', loggedH: 'Logged', addOut: '+ Eating out', loOf: n => `Leftovers · ${n}`, loFrom: d => `Cooked ${d}`, outT: 'Eating out', outPh: 'Where? (optional)', loPickH: 'Leftovers of which dish?', loPortion: 'How much', portionX: p => `${p} ${p === 1 ? 'portion' : 'portions'}`, loNone: 'Nothing planned earlier this week yet.', cancelPick: 'Cancel',
+    delAria: n => `Remove ${n} from the plan`, none: 'Nothing planned', weekend: ' · Weekend', planFoot: 'Leftovers and eating out don\u2019t add to the shopping list. On an eating-out day, log it below with a photo or by hand.', addLo: '+ Leftovers', updH: 'Update', updSub: 'Anything to change after cooking it? Amounts, steps, swaps, how it tasted: write it here and I’ll update the recipe.', updPh: 'e.g. half the soy sauce; 15 min in the oven is enough', updSend: 'Submit', updDone: 'Updated', updOpen: 'Waiting', updSaved: 'Submitted; it will be handled at the next recipe update.', updDelA: 'Delete this note', addDish: '+ Add a dish', pickFor: d => `Choosing a dish for ${d}: tap one, then “Add to ${d}”.`, pickCancel: 'Cancel', dinnerH: 'Dinner plan', logFuture: 'You can log what you ate here on the day.', loggedH: 'Logged', addOut: '+ Eating out', loOf: n => `Leftovers · ${n}`, loFrom: d => `Cooked ${d}`, outT: 'Eating out', outPh: 'Restaurant, or paste a Google Maps share link', mapsBtn: 'Google Maps', mapsHint: 'In Google Maps tap Share → Copy link and paste it above.', loPickH: 'Leftovers of which dish?', loPortion: 'How much', portionX: p => `${p} ${p === 1 ? 'portion' : 'portions'}`, loNone: 'Nothing planned earlier this week yet.', cancelPick: 'Cancel',
     shopEyebrow: 'Shopping', shopH: 'Shopping list', shopStats: (d, n, x) => `${d} ${d === 1 ? 'dish' : 'dishes'} · ${n} items · ${x} bought`, range: 'Shopping range', week: 'Whole week', weekdays: 'Weekdays', weekendR: 'Weekend',
     pantry: 'Pantry staples: check what you already have before buying.', selectAll: 'Check all', unselectAll: 'Uncheck all', shopEmpty: 'Nothing planned in this range yet. Add a few dishes in This week.',
     shopFoot: 'The same ingredient in the same unit adds up automatically; spoons and cups are combined, but volume is never converted to weight. Rice is counted uncooked.', sep: ', ',
@@ -1019,6 +1021,7 @@ const vf = (r, vk, k) => LANG === 'en' ? (EN(r).v[vk] || {})[k] : r.versions[vk]
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const byId = id => RECIPES.find(r => r.id === id);
 const ICON = {
+  pin: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>',
   out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v8a2 2 0 0 0 2 2v8M5 3v5a2 2 0 0 0 2 2M9 3v5a2 2 0 0 1-2 2M17 21V3c-2 1-3 4-3 7v3h3"/></svg>',
   book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M8 7h7"/></svg>',
   cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4m8-4v4"/></svg>',
@@ -1163,7 +1166,8 @@ function planDate(i) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(
 function planEntryHtml(e, idx, i) {
   const delBtn = n => `<button class="ghost" data-act="pdel" data-i="${idx}" aria-label="${esc(t('delAria', n))}">${t('del')}</button>`;
   if (e.kind === 'out') return `<div class="entry kind-out"><div class="kicon" aria-hidden="true">${ICON.out}</div><div><div class="t">${t('outT')}</div>
-    <label class="field slim"><span class="sr">${t('outPh')}</span><input type="text" data-act="pnote" data-i="${idx}" maxlength="120" placeholder="${esc(t('outPh'))}" value="${esc(e.note || '')}"></label></div><span></span>
+    ${outPlace(e)}<label class="field slim"><span class="sr">${t('outPh')}</span><input type="text" data-act="pnote" data-i="${idx}" maxlength="400" placeholder="${esc(t('outPh'))}" value="${esc(e.note || '')}"></label>
+    <a class="chip sm maps" href="${esc(mapsHref(e.note))}" target="_blank" rel="noopener">${ICON.pin || ''}${t('mapsBtn')}</a></div><span></span>
     <div class="ctl">${delBtn(t('outT'))}</div></div>`;
   const r = byId(e.id), v = r.versions[e.ver] || r.versions.orig;
   if (e.kind === 'leftover') {
@@ -1337,7 +1341,7 @@ document.addEventListener('click', ev => {
 });
 document.addEventListener('change', ev => {
   const pn = ev.target.closest('[data-act="pnote"]');
-  if (pn) { const e = S.plan[+pn.dataset.i]; if (e) { e.note = pn.value.trim().slice(0, 120); Sync.op('plan_upsert', e); persist(); } return; }
+  if (pn) { const e = S.plan[+pn.dataset.i]; if (e) { e.note = pn.value.trim().slice(0, 400); Sync.op('plan_upsert', e); persist(); render(); } return; }
   const sel = ev.target.closest('select[data-act]');
   if (sel) { if (sel.dataset.act === 'rtype-sel') S.rtype = sel.value; if (sel.dataset.act === 'cuisine-sel') S.cuisine = sel.value; render(); return; }
   const c = ev.target.closest('[data-act="check"],[data-act="prep"]'); if (!c) return;
@@ -1374,6 +1378,24 @@ document.addEventListener('click', ev => {
   }
   render(); setTimeout(() => { const s = document.getElementById('upd'); if (s) s.scrollIntoView({ block: 'center' }); }, 0);
 }, true);
+
+// ---- eating out ↔ Google Maps: a pasted share link opens that place; a typed name searches Maps ----
+function parsePlace(note) {
+  const s = String(note || ''), m = s.match(/https?:\/\/\S+/);
+  const url = m && /(maps\.app\.goo\.gl|goo\.gl\/maps|google\.[a-z.]+\/maps|maps\.google\.)/i.test(m[0]) ? m[0] : null;
+  const name = s.replace(/https?:\/\/\S+/g, '').split('\n').map(x => x.trim()).filter(Boolean)[0] || '';
+  return { url, name };
+}
+function mapsHref(note) {
+  const p = parsePlace(note);
+  if (p.url) return p.url;
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.name || (LANG === 'en' ? 'restaurants near me' : '附近餐厅'));
+}
+function outPlace(e) {
+  const p = parsePlace(e.note);
+  if (!p.url) return '';
+  return `<a class="placelink" href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.name || 'Google Maps')} ›</a>`;
+}
 
 // ---- Today: food log and daily goals (Phase 5a) ----
 // Entries: { uid, user, date 'YYYY-MM-DD', meal, recipe_id, ver, portion, label, kcal, P, C, F }
@@ -1543,7 +1565,7 @@ function logPanel(d, date) {
   const f = S.logForm;
   const sameWeek = mondayOf(d) === mondayOf(new Date());
   const planned = sameWeek ? S.plan.filter(e => e.day === (d.getDay() + 6) % 7) : [];
-  const chips = planned.length ? `<div class="chips">${planned.map(e => { if (e.kind === 'out') return `<button class="chip" data-act="lother" aria-pressed="false">${esc(t('outT') + (e.note ? ' · ' + e.note : ''))}</button>`; const r = byId(e.id); return `<button class="chip" data-act="lpick" data-id="${r.id}" data-v="${e.ver}" data-p="${e.kind === 'leftover' ? (+e.portion || 1) : 1}" aria-pressed="${!!(f && f.recipe_id === r.id)}">${esc(e.kind === 'leftover' ? t('loOf', title(r)) : title(r))}</button>`; }).join('')}
+  const chips = planned.length ? `<div class="chips">${planned.map(e => { if (e.kind === 'out') return `<button class="chip" data-act="lother" aria-pressed="false">${esc(t('outT') + (parsePlace(e.note).name ? ' · ' + parsePlace(e.note).name : ''))}</button>`; const r = byId(e.id); return `<button class="chip" data-act="lpick" data-id="${r.id}" data-v="${e.ver}" data-p="${e.kind === 'leftover' ? (+e.portion || 1) : 1}" aria-pressed="${!!(f && f.recipe_id === r.id)}">${esc(e.kind === 'leftover' ? t('loOf', title(r)) : title(r))}</button>`; }).join('')}
       <button class="chip" data-act="lother" aria-pressed="${!!(f && f.other)}">${t('other')}</button></div>`
     : `<p class="muted">${t('noPlanToday')}</p><div class="chips"><button class="chip" data-act="lother" aria-pressed="${!!(f && f.other)}">${t('other')}</button></div>`;
   const q = S.foodQ.trim().toLowerCase();
