@@ -314,6 +314,18 @@ ul.log li:last-child { border-bottom: 0; }
 .check input, .ing input { accent-color: var(--ink); }
 .panel > .label, .tcard .label { font-size: 13px; font-weight: 600; color: var(--muted); }
 /* Today */
+.wcard { background: var(--ivory); border-radius: 20px; padding: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 6px; }
+.whead { display: flex; justify-content: space-between; align-items: baseline; }
+.wmeta { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.wbig { font-size: 15px; font-weight: 600; } .wbig b { font-size: 34px; font-weight: 800; letter-spacing: -.02em; margin-right: 3px; }
+.wbf { margin-left: 10px; font-size: 14px; color: var(--muted); }
+.wcard .ss { font-size: 12.5px; color: var(--muted); }
+.wform { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; margin-top: 6px; }
+.wform .action { flex: none; min-height: 48px; padding: 10px 16px; }
+.wdots { display: grid; grid-template-columns: repeat(15, minmax(0, 1fr)); gap: 4px; margin-top: 6px; }
+.wdots i { aspect-ratio: 1; border-radius: 3px; background: #E6E6E3; }
+.wdots i.on { background: var(--ok); }
+.linkish.small { font-size: 13px; align-self: flex-start; }
 .hgroup { flex: 1; display: flex; flex-direction: column; }
 .datel { font-size: 13px; font-weight: 500; color: var(--muted); }
 .navbtns { display: flex; gap: 6px; }
@@ -748,7 +760,7 @@ const Sync = (() => {
     if (error) return fail(error);
     clearLocal(); await afterLogin(st.user);
   }
-  function clearLocal() { S.plan = []; S.checked = {}; S.saved = {}; S.intake = []; S.goals = {}; S.health = {}; S.foods = []; save('foods', []); setOutbox([]); persist(); save('intake', []); save('goals', {}); save('health', {}); }
+  function clearLocal() { S.plan = []; S.checked = {}; S.saved = {}; S.intake = []; S.goals = {}; S.health = {}; S.foods = []; S.weights = {}; save('weights', {}); save('foods', []); setOutbox([]); persist(); save('intake', []); save('goals', {}); save('health', {}); }
 
   async function signOut() {
     if (channel) { sb.removeChannel(channel); channel = null; }
@@ -762,7 +774,8 @@ const Sync = (() => {
     if (!enabled || st.stage !== 'ready' || outbox().length) return;
     const h = st.household.id, wk = weekStart();
     const since = new Date(); since.setDate(since.getDate() - 35);
-    const [plan, checks, favs, mem, health, foods, intake] = await Promise.all([
+    const since2 = new Date(); since2.setDate(since2.getDate() - 120);
+    const [plan, checks, favs, mem, health, foods, intake, wins] = await Promise.all([
       sb.from('plan_entries').select('id, day, recipe_id, ver, servings, kind, note, portion').eq('household_id', h).eq('week_start', wk).order('updated_at'),
       sb.from('shopping_checks').select('item_key').eq('household_id', h).eq('week_start', wk),
       sb.from('favorites').select('user_id, recipe_id, rating'),
@@ -770,8 +783,9 @@ const Sync = (() => {
       sb.from('health_daily').select('day, source, steps, active_kcal, resting_hr, weight_kg, exercise_min, sleep_min, sleep_score, readiness, hrv_ms, body_fat_pct').eq('user_id', st.user.id).gte('day', ymd(since)),
       sb.from('saved_foods').select('id, name, kcal, protein_g, carbs_g, fat_g, uses, last_used').eq('household_id', h),
       sb.from('intake_logs').select('id, user_id, eaten_on, meal, recipe_id, ver, portion, label, kcal, protein_g, carbs_g, fat_g').gte('eaten_on', ymd(since)).order('created_at'),
+      sb.from('weigh_ins').select('day, weight_kg, body_fat_pct').eq('user_id', st.user.id).gte('day', ymd(since2)),
     ]);
-    const err = plan.error || checks.error || favs.error || mem.error || intake.error || health.error || foods.error;
+    const err = plan.error || checks.error || favs.error || mem.error || intake.error || health.error || foods.error || wins.error;
     if (err) { st.status = 'offline'; rerender(); return; }
     S.plan = plan.data.filter(r => r.kind === 'out' || RECIPES.some(x => x.id === r.recipe_id)).map(r => ({ uid: r.id, id: r.recipe_id, ver: r.ver, servings: r.servings, day: r.day, kind: r.kind || 'recipe', note: r.note || '', portion: +r.portion || 1 }));
     S.checked = Object.fromEntries(checks.data.map(r => [r.item_key, true]));
@@ -782,6 +796,7 @@ const Sync = (() => {
     S.intake = intake.data.map(r => ({ uid: r.id, user: r.user_id, date: r.eaten_on, meal: r.meal, recipe_id: r.recipe_id, ver: r.ver, portion: +r.portion, label: r.label || '', kcal: r.kcal || 0, P: r.protein_g || 0, C: r.carbs_g || 0, F: r.fat_g || 0 }));
     S.foods = foods.data.map(r => ({ id: r.id, name: r.name, kcal: r.kcal, P: r.protein_g, C: r.carbs_g, F: r.fat_g, uses: r.uses, last_used: r.last_used }));
     save('foods', S.foods);
+    S.weights = {}; wins.data.forEach(r => { S.weights[r.day] = { kg: +r.weight_kg, bf: r.body_fat_pct != null ? +r.body_fat_pct : null }; }); save('weights', S.weights);
     S.health = {};
     health.data.forEach(r => { (S.health[r.day] = S.health[r.day] || {})[r.source] = r; });
     save('intake', S.intake); save('goals', S.goals); save('health', S.health);
@@ -821,6 +836,8 @@ const Sync = (() => {
     if (type === 'food_upsert') return sb.from('saved_foods').upsert({ id: p.id, household_id: h, name: p.name, kcal: p.kcal, protein_g: p.P, carbs_g: p.C, fat_g: p.F, uses: p.uses, last_used: p.last_used });
     if (type === 'food_delete') return sb.from('saved_foods').delete().eq('id', p);
     if (type === 'fav_add') return sb.from('favorites').upsert(typeof p === 'string' ? { user_id: me, recipe_id: p } : { user_id: me, recipe_id: p.id, rating: p.rating });
+    if (type === 'weigh_upsert') return sb.from('weigh_ins').upsert({ user_id: me, day: p.day, weight_kg: p.kg, body_fat_pct: p.bf, updated_at: new Date().toISOString() });
+    if (type === 'weigh_delete') return sb.from('weigh_ins').delete().match({ user_id: me, day: p });
     if (type === 'fav_del') return sb.from('favorites').delete().match({ user_id: me, recipe_id: p });
     return { error: null };
   }
@@ -1241,7 +1258,7 @@ document.addEventListener('input', ev => {
 // Entries: { uid, user, date 'YYYY-MM-DD', meal, recipe_id, ver, portion, label, kcal, P, C, F }
 // user is the Supabase user id in the synced app, 'me' in the preview.
 Object.assign(T.zh, {
-  tToday: '今天', bodyFat: '体脂率', todayEyebrow: 'Today · 今天', kLeft: '还能吃', kOver: '超出目标', kEaten: '已吃热量', eatGoal: (e, g) => `已吃 ${e} · 目标 ${g}`, macLeft: n => `${n}还差`, macEaten: n => `${n}已吃`, logJump: '记一餐', goalSet: '在「我」里设每天的目标', eaten: '已吃', left: n => `还差 ${n}`, over: n => `超了 ${n}`,
+  tToday: '今天', bodyFat: '体脂率', wH: '体重', wLb: '体重 lb', wBf: '体脂 %', wSave: '记录', wUpdate: '更新', wDel: '删除这天的体重', wSaved: '已记录。', wBad: '请输入 50–550 之间的体重（lb）。', wTrend: (t, c) => `趋势 ${t} lb${c != null ? ` · 每周 ${c > 0 ? '+' : ''}${c} lb` : ''}`, wLast: d => `最近一次：${d}`, wNone: '还没有记录。每天早上空腹称一次最准。', wWeek: n => `本周 ${n}/7 天`, wStreak: n => `连续 ${n} 天`, w30: '过去 30 天', todayEyebrow: 'Today · 今天', kLeft: '还能吃', kOver: '超出目标', kEaten: '已吃热量', eatGoal: (e, g) => `已吃 ${e} · 目标 ${g}`, macLeft: n => `${n}还差`, macEaten: n => `${n}已吃`, logJump: '记一餐', goalSet: '在「我」里设每天的目标', eaten: '已吃', left: n => `还差 ${n}`, over: n => `超了 ${n}`,
   protein: '蛋白质', carbs: '碳水', fat: '脂肪', mealB: '早餐', mealL: '午餐', mealD: '晚餐', mealS: '加餐', nothing: '还没记录',
   logTitle: '记一餐', fromPlan: '今天菜单上的', noPlanToday: '今天菜单上没有菜。可以在食谱里打开一道菜记录，或者手填。',
   other: '手填其他食物', foodName: '吃了什么', kcalL: '热量 kcal', proteinL: '蛋白质 g', carbsL: '碳水 g', fatL: '脂肪 g', portion: '份量', meal: '哪一餐',
@@ -1271,7 +1288,7 @@ Object.assign(T.zh, {
 Object.assign(T.en, {
   tToday: 'Today', todayEyebrow: 'Today', goalSet: 'Set daily goals in Me', eaten: 'Eaten', left: n => `${n} to go`, over: n => `${n} over`,
   protein: 'Protein', carbs: 'Carbs', fat: 'Fat', mealB: 'Breakfast', mealL: 'Lunch', mealD: 'Dinner', mealS: 'Snack', nothing: 'Nothing logged yet',
-  logTitle: 'Log a meal', bodyFat: 'Body fat', kLeft: 'Calories left', kOver: 'Over goal', kEaten: 'Calories eaten', eatGoal: (e, g) => `${e} eaten · goal ${g}`, macLeft: n => `${n} left`, macEaten: n => `${n} eaten`, logJump: 'Log a meal', fromPlan: 'On today’s plan', noPlanToday: 'Nothing planned today. Open a recipe to log it, or enter something by hand.',
+  logTitle: 'Log a meal', bodyFat: 'Body fat', wH: 'Weight', wLb: 'Weight (lb)', wBf: 'Body fat %', wSave: 'Log', wUpdate: 'Update', wDel: 'Delete this day’s weight', wSaved: 'Logged.', wBad: 'Enter a weight between 50 and 550 lb.', wTrend: (t, c) => `Trend ${t} lb${c != null ? ` · ${c > 0 ? '+' : ''}${c} lb / week` : ''}`, wLast: d => `Last: ${d}`, wNone: 'Nothing logged yet. Weigh in the morning before eating for the steadiest numbers.', wWeek: n => `${n}/7 this week`, wStreak: n => `${n}-day streak`, w30: 'Last 30 days', kLeft: 'Calories left', kOver: 'Over goal', kEaten: 'Calories eaten', eatGoal: (e, g) => `${e} eaten · goal ${g}`, macLeft: n => `${n} left`, macEaten: n => `${n} eaten`, logJump: 'Log a meal', fromPlan: 'On today’s plan', noPlanToday: 'Nothing planned today. Open a recipe to log it, or enter something by hand.',
   other: 'Something else', foodName: 'What you ate', kcalL: 'Calories (kcal)', proteinL: 'Protein (g)', carbsL: 'Carbs (g)', fatL: 'Fat (g)', portion: 'Portion', meal: 'Meal',
   log: 'Log it', logged: 'Logged for today.', remove: 'Remove', goalsH: 'Daily goals', kcalGoal: 'Calories (kcal)', proteinGoal: 'Protein (g)', saveGoals: 'Save goals',
   goalsSaved: 'Goals saved.', goalsHint: 'Only used to show progress. Your partner can see your log and goals too.', logRecipe: 'Log to today’s food', portionN: p => `${p} portion${p === 1 ? '' : 's'}`,
@@ -1305,7 +1322,7 @@ S.intake = load('intake', []);
 S.goals = load('goals', {});          // { [user]: { kcal, protein } }
 S.foods = load('foods', []);
 S.alsoPartner = load('alsoPartner', false);
-Object.assign(S, { foodQ: '', dayOff: 0, whose: null, logForm: null, logMsg: '', photo: null, ingest: null, health: load('health', {}) });
+Object.assign(S, { foodQ: '', dayOff: 0, whose: null, logForm: null, logMsg: '', photo: null, ingest: null, health: load('health', {}), weights: load('weights', {}), wMsg: '' });
 const persistFit = () => { save('intake', S.intake); save('goals', S.goals); save('foods', S.foods); };
 
 const me = () => (Sync.enabled && Sync.st.user ? Sync.st.user.id : 'me');
@@ -1374,7 +1391,7 @@ function viewToday() {
       <div class="navbtns"><button class="round" data-act="dprev" aria-label="${t('prevDay')}">‹</button><button class="round" data-act="dnext" aria-label="${t('nextDay')}">›</button></div>${langBtn()}</div>
       ${S.dayOff ? `<button class="linkish" data-act="dtoday">${t('today')}</button>` : ''}${syncLine()}</div>
     ${whoSeg}${!mine ? `<p class="muted">${esc(t('readOnly', name))}</p>` : ''}
-    ${summary}${mine ? healthCard(date) : ''}${meals}${mine ? logPanel(d, date) : ''}
+    ${summary}${mine ? weightCard(d, date) : ''}${mine ? healthCard(date) : ''}${meals}${mine ? logPanel(d, date) : ''}
     ${mine ? `<button class="fab" data-act="logjump" aria-label="${t('logJump')}"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>` : ''}</main>`;
 }
 function dayShort(d) { return LANG === 'en' ? DAYS_LONG_EN[(d.getDay() + 6) % 7] : DAYS_I.zh[(d.getDay() + 6) % 7]; }
@@ -1467,11 +1484,19 @@ function fitnessClick(a, b) {
     case 'aiport': if (S.logForm && S.logForm.ai) { const ai = S.logForm.ai; ai.portion = Math.min(4, Math.max(0.5, ai.portion + +b.dataset.d)); aiRecalc(S.logForm); } break;
     case 'aidel': if (S.logForm && S.logForm.ai) { S.logForm.ai.items.splice(+b.dataset.i, 1); aiRecalc(S.logForm); } break;
     case 'logjump': { const el = document.getElementById('logpanel'); if (el) el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); return true; }
+    case 'wsave': {
+      const lb = parseFloat(val('w-lb')), bfv = val('w-bf').trim(), bf = bfv === '' ? null : parseFloat(bfv);
+      if (!(lb >= 50 && lb <= 550) || (bf !== null && !(bf >= 2 && bf <= 75))) { S.wMsg = 'bad'; S.wForm = { date, lb: val('w-lb'), bf: bfv }; break; }
+      const kg = Math.round(lb * KG * 100) / 100;
+      S.weights[date] = { kg, bf: bf === null ? null : Math.round(bf * 10) / 10 }; save('weights', S.weights);
+      Sync.op('weigh_upsert', { day: date, kg, bf: S.weights[date].bf }); S.wMsg = 'ok'; S.wForm = null; break;
+    }
+    case 'wdel': delete S.weights[date]; save('weights', S.weights); Sync.op('weigh_delete', date); S.wMsg = ''; S.wForm = null; break;
     case 'lalso': S.alsoPartner = !!b.checked; save('alsoPartner', S.alsoPartner); return true;
     case 'meview': S.meView = b.dataset.v; break;
     case 'trange': S.trendRange = +b.dataset.n; break;
-    case 'dprev': S.dayOff--; reset(); S.logMsg = ''; break;
-    case 'dnext': S.dayOff++; reset(); S.logMsg = ''; break;
+    case 'dprev': S.dayOff--; reset(); S.logMsg = ''; S.wMsg = ''; S.wForm = null; break;
+    case 'dnext': S.dayOff++; reset(); S.logMsg = ''; S.wMsg = ''; S.wForm = null; break;
     case 'dtoday': S.dayOff = 0; reset(); S.logMsg = ''; break;
     case 'whose': S.whose = b.dataset.u; reset(); break;
     case 'lpick': S.logForm = { recipe_id: b.dataset.id, ver: b.dataset.v, portion: +b.dataset.p || 1, meal: defaultMeal() }; S.logMsg = ''; break;
@@ -1743,20 +1768,61 @@ document.addEventListener('input', ev => {
   const n = document.getElementById('ai-g-' + i); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { /* number input */ } }
 });
 
+// ---- weigh-ins (typed in the app, private to each person) ----
+const KG = 0.45359237, toLb = kg => Math.round(kg / KG * 10) / 10;
+function weightTrend(upTo) {
+  // smoothed weight, carried day by day (same idea as MacroFactor's trend weight)
+  const days = Object.keys(S.weights).filter(d => d <= upTo).sort();
+  if (!days.length) return null;
+  const out = {}; let t = null; const a = 0.15;
+  const d0 = new Date(days[0] + 'T12:00:00'), end = new Date(upTo + 'T12:00:00');
+  for (let d = new Date(d0); d <= end; d.setDate(d.getDate() + 1)) {
+    const k = ymdOf(d), w = S.weights[k];
+    if (w) t = t === null ? w.kg : t + a * (w.kg - t);
+    out[k] = t;
+  }
+  return out;
+}
+function weightCard(d, date) {
+  const w = S.weights[date], tr = weightTrend(date) || {};
+  const tNow = tr[date];
+  const wk = new Date(d); wk.setDate(wk.getDate() - 7); const tPrev = tr[ymdOf(wk)];
+  const change = tNow != null && tPrev != null ? Math.round((tNow - tPrev) / KG * 10) / 10 : null;
+  const lastDay = Object.keys(S.weights).filter(x => x <= date).sort().pop();
+  const big = w ? toLb(w.kg) : lastDay ? toLb(S.weights[lastDay].kg) : null;
+  // habit squares: last 30 days, this week, streak
+  const sq = []; let streak = 0;
+  for (let i = 29; i >= 0; i--) { const x = new Date(d); x.setDate(x.getDate() - i); sq.push(!!S.weights[ymdOf(x)]); }
+  // consecutive days ending today (or yesterday, if today isn't logged yet)
+  for (let i = S.weights[date] ? 0 : 1; i < 366; i++) { const x = new Date(d); x.setDate(x.getDate() - i); if (S.weights[ymdOf(x)]) streak++; else break; }
+  const mon = new Date(d); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+  let week = 0; for (let i = 0; i < 7; i++) { const x = new Date(mon); x.setDate(x.getDate() + i); if (S.weights[ymdOf(x)]) week++; }
+  const f = S.wForm && S.wForm.date === date ? S.wForm : { lb: w ? String(toLb(w.kg)) : '', bf: w && w.bf != null ? String(w.bf) : '' };
+  return `<section class="wcard"><div class="whead"><span class="label">${t('wH')}</span><span class="wmeta">${t('wWeek', week)}${streak > 1 ? ' · ' + t('wStreak', streak) : ''}</span></div>
+    ${big != null ? `<div class="wbig"><b>${big.toFixed(1)}</b> lb${w && w.bf != null ? `<span class="wbf">${w.bf}%</span>` : ''}</div>
+      <span class="ss">${w ? '' : esc(t('wLast', lastDay)) + ' · '}${tNow != null ? esc(t('wTrend', toLb(tNow).toFixed(1), change)) : ''}</span>` : `<p class="muted">${t('wNone')}</p>`}
+    <div class="wform"><label class="field"><span>${t('wLb')}</span><input id="w-lb" type="number" inputmode="decimal" step="0.1" min="50" max="550" value="${esc(f.lb)}"></label>
+      <label class="field"><span>${t('wBf')}</span><input id="w-bf" type="number" inputmode="decimal" step="0.1" min="2" max="75" value="${esc(f.bf)}"></label>
+      <button class="action" data-act="wsave">${w ? t('wUpdate') : t('wSave')}</button></div>
+    ${S.wMsg ? `<p class="${S.wMsg === 'bad' ? 'err' : 'toast'}" role="status">${t(S.wMsg === 'bad' ? 'wBad' : 'wSaved')}</p>` : ''}
+    <div class="wdots" role="img" aria-label="${esc(t('w30'))}: ${sq.filter(Boolean).length}/30">${sq.map(x => `<i class="${x ? 'on' : ''}"></i>`).join('')}</div>
+    ${w ? `<button class="linkish small" data-act="wdel">${t('wDel')}</button>` : ''}</section>`;
+}
+
 // ---- Trends: last 7 or 30 days, one small chart per measure (Phase 5d) ----
 // Single-series charts in the app's spice colour; goal shown as a dashed reference line.
 Object.assign(T.zh, {
   viewDay: '今天', viewTrends: '趋势', viewSettings: '设置', range7: '7 天', range30: '30 天', avg: n => `平均 ${n}`, latest: n => `最近 ${n}`,
   tKcal: '每天吃的热量', tProtein: '每天的蛋白质', tSteps: '步数', tActive: '活动消耗', tWeight: '体重', tSleepScore: '睡眠分（Oura）',
   tReadiness: 'Readiness 准备度（Oura）', tHrv: 'HRV（Oura）', tRhr: '静息心率', tSleep: '睡眠时长', noData: '这段时间还没有数据。',
-  goalLine: n => `虚线是目标 ${n}`, tapHint: '点柱子或点看当天的数字。', ouraLater: '连上 Oura 后，这里会出现睡眠分、Readiness 和 HRV。',
+  goalLine: n => `虚线是目标 ${n}`, tWTrend: '体重趋势（平滑后）', tapHint: '点柱子或点看当天的数字。', ouraLater: '连上 Oura 后，这里会出现睡眠分、Readiness 和 HRV。',
   daysLogged: (n, d) => `${d} 天里记了 ${n} 天`,
 });
 Object.assign(T.en, {
   viewDay: 'Today', viewTrends: 'Trends', viewSettings: 'Settings', range7: '7 days', range30: '30 days', avg: n => `avg ${n}`, latest: n => `latest ${n}`,
   tKcal: 'Calories eaten', tProtein: 'Protein', tSteps: 'Steps', tActive: 'Active energy', tWeight: 'Weight', tSleepScore: 'Sleep score (Oura)',
   tReadiness: 'Readiness (Oura)', tHrv: 'HRV (Oura)', tRhr: 'Resting heart rate', tSleep: 'Sleep', noData: 'No data for this period yet.',
-  goalLine: n => `dashed line: goal ${n}`, tapHint: 'Tap a bar or point to see that day.', ouraLater: 'Once Oura is connected, sleep score, Readiness and HRV appear here.',
+  goalLine: n => `dashed line: goal ${n}`, tapHint: 'Tap a bar or point to see that day.', tWTrend: 'Weight trend (smoothed)', ouraLater: 'Once Oura is connected, sleep score, Readiness and HRV appear here.',
   daysLogged: (n, d) => `logged ${n} of ${d} days`,
 });
 Object.assign(S, { meView: 'trends', trendRange: 7 });
@@ -1837,7 +1903,8 @@ function viewTrends() {
   if (mine) {
     cards += trendCard('steps', t('tSteps'), hv('apple', 'steps'))
       + trendCard('active', t('tActive'), hv('apple', 'active_kcal'), { unit: 'kcal' })
-      + trendCard('weight', t('tWeight'), hv('apple', 'weight_kg', lb), { kind: 'line', unit: 'lb', fmt: oneDec, connect: true })
+      + trendCard('weight', t('tWeight'), days.map(d => { const k = ymdOf(d), w = (S.weights || {})[k], a = (S.health[k] || {}).apple; return { d, v: w ? lb(w.kg) : a && a.weight_kg != null ? lb(a.weight_kg) : null }; }), { kind: 'line', unit: 'lb', fmt: oneDec, connect: true })
+      + trendCard('wtrend', t('tWTrend'), (() => { const last = ymdOf(days[days.length - 1]), tr = weightTrend(last) || {}; return days.map(d => ({ d, v: tr[ymdOf(d)] != null ? lb(tr[ymdOf(d)]) : null })); })(), { kind: 'line', unit: 'lb', fmt: oneDec, connect: true })
       + trendCard('rhr', t('tRhr'), pick('resting_hr'), { kind: 'line', unit: 'bpm' });
     cards += hasOura
       ? trendCard('sleepscore', t('tSleepScore'), hv('oura', 'sleep_score'), { kind: 'line' })
