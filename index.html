@@ -391,6 +391,19 @@ ul.log li:last-child { border-bottom: 0; }
 .dayrow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; } .dayrow .chip { padding: 6px 0; min-height: 38px; }
 .seg.wrap { flex-wrap: wrap; align-self: flex-start; }
 .ci { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.dcwrap { position: relative; }
+.addfab { position: absolute; top: 12px; right: 12px; min-height: 40px; padding: 8px 14px; border-radius: 999px; border: 0; background: rgba(255,255,255,.94); color: #111; font: 600 14px/1 inherit; box-shadow: 0 2px 10px rgba(0,0,0,.15); cursor: pointer; }
+.addfab.done { background: #111; color: #fff; }
+.sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 60; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; background: var(--card, #fff); border-radius: 20px 20px 0 0; padding: 20px 18px calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; max-width: 640px; margin: 0 auto; box-shadow: 0 -6px 30px rgba(0,0,0,.18); }
+.sheet h2 { margin: 0; font-size: 20px; }
+.sdays { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.sdays button { min-height: 58px; border: 1px solid var(--line, #ddd); border-radius: 14px; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; font: inherit; color: inherit; }
+.sdays button b { font-size: 15px; } .sdays button span { font-size: 12px; color: var(--muted, #6b6b6b); }
+.sdays button[aria-pressed="true"] { border-color: #111; border-width: 2px; }
+.row.between { justify-content: space-between; align-items: center; }
+.kvs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px 16px; margin: 10px 0 14px; }
+.kv { display: flex; flex-direction: column; gap: 2px; min-width: 0; } .kv span { font-size: 12px; color: var(--muted, #6b6b6b); } .kv b { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
 .cirow { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; } .cirow span { font-variant-numeric: tabular-nums; }
 .cibanner { text-decoration: none; border: 0; border-radius: 14px; background: #FFF4D6; color: var(--ink); text-align: left; padding: 12px 14px; font-size: 14px; font-weight: 600; }
 .insights { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -999,7 +1012,7 @@ const T = {
     nutAria: '每人营养估算', P: '蛋白质 g', C: '碳水 g', F: '脂肪 g', Fib: '纤维 g', kept: '原版保留不变，随时可以切回去。',
     chgEyebrow: 'Lighter · 减脂版改了什么', s1: '01 / Get ready · 准备', ing: '食材',
     prepLine: (rd, tot, base, sv) => `${rd} / ${tot} 样已备好 · 原文 ${base} 人份，现在按 ${sv} 人份换算，单位跟原文。`, tasteUp: ' 调味放大后先少放再尝。',
-    ready: n => `备好 ${n}`, assume: '假设', s2: '02 / At the stove · 开火', steps: '步骤', s3: '03 / Plan · 安排', addTitle: '加入本周', pickDay: '选哪天',
+    ready: n => `备好 ${n}`, assume: '假设', s2: '02 / At the stove · 开火', steps: '步骤', s3: '03 / Plan · 安排', addTitle: '加入本周', pickDay: '选哪天', addFab: '加入本周', addedFab: d => `已加入${d}`, pickDayQ: '加到哪一天？', nDish: n => `${n} 道`, planCancelS: '取消',
     addBtn: (d, v, s) => `加入${d} · ${v} · ${s} 人份`, added: d => `已加入${d}，采购单已更新。`,
     planEyebrow: 'This week · 本周', planH: '一周晚饭', planSub: '每道菜单独选份数和版本，采购单跟着变。', switchTo: v => `换成${v}`, del: '删除',
     delAria: n => `从计划里删除${n}`, none: '没安排', weekend: ' · 周末', planFoot: '剩菜和外食不进采购单。外食那天可以在下面的「记一餐」里拍照或手动记一笔。', addLo: '+ 剩菜', updH: '更新', updSub: '做完觉得哪里要改？用量、步骤、换食材、口味心得都写在这里，我会按这些更新菜谱。', updPh: '比如：酱油少放一半；烤 15 分钟就够', updSend: '提交', updDone: '已更新', updOpen: '待更新', updSaved: '已提交，下次更新菜谱时会处理。', updDelA: '删除这条', addDish: '+ 加一道菜', pickFor: d => `正在给${d}选菜：点一道菜，再点「加到${d}」`, pickCancel: '取消', dinnerH: '晚饭计划', logFuture: '到了那天就能在这里记录吃了什么。', loggedH: '已记录', addOut: '+ 外食', loOf: n => `剩菜 · ${n}`, loFrom: d => `${d}做的`, outT: '外食', outPh: '餐厅名，或粘贴 Google Maps 分享链接', mapsBtn: 'Google Maps', mapsFind: '在 Google Maps 找', placeOk: '确认这家', placeEdit: '改', placeHint: '先在 Google Maps 找到餐厅（可以复制分享链接粘贴回来），确认后点名字就直接打开这家店。', mapsHint: '在 Google Maps 里点「分享 → 复制链接」，粘贴到上面就行。', loPickH: '吃哪道的剩菜？', loPortion: '吃多少', portionX: p => `${p} 份`, loNone: '这周前几天还没安排菜。', cancelPick: '取消',
@@ -1026,7 +1039,7 @@ const T = {
     nutAria: 'Estimated nutrition per person', P: 'protein g', C: 'carbs g', F: 'fat g', Fib: 'fiber g', kept: 'The original is unchanged; you can switch back anytime.',
     chgEyebrow: 'Lighter · What changed', s1: '01 / Get ready', ing: 'Ingredients',
     prepLine: (rd, tot, base, sv) => `${rd} / ${tot} ready · The original serves ${base}; scaled to ${sv}, in the original’s units.`, tasteUp: ' Seasoning is scaled up too: add less at first, then taste.',
-    ready: n => `${n} ready`, assume: 'Assumed', s2: '02 / At the stove', steps: 'Method', s3: '03 / Plan', addTitle: 'Add to this week', pickDay: 'Pick a day',
+    ready: n => `${n} ready`, assume: 'Assumed', s2: '02 / At the stove', steps: 'Method', s3: '03 / Plan', addTitle: 'Add to this week', pickDay: 'Pick a day', addFab: 'Add to a day', addedFab: d => `Added to ${d}`, pickDayQ: 'Which day?', nDish: n => `${n} planned`, planCancelS: 'Cancel',
     addBtn: (d, v, s) => `Add to ${d} · ${v} · ${ser(s)}`, added: d => `Added to ${DAYS_LONG_EN[DAYS_I.en.indexOf(d)] || d}; shopping list updated.`,
     planEyebrow: 'This week', planH: 'Dinners this week', planSub: 'Pick servings and version for each dish; the shopping list follows.', switchTo: v => `Switch to ${v.toLowerCase()}`, del: 'Remove',
     delAria: n => `Remove ${n} from the plan`, none: 'Nothing planned', weekend: ' · Weekend', planFoot: 'Leftovers and eating out don\u2019t add to the shopping list. On an eating-out day, log it below with a photo or by hand.', addLo: '+ Leftovers', updH: 'Update', updSub: 'Anything to change after cooking it? Amounts, steps, swaps, how it tasted: write it here and I’ll update the recipe.', updPh: 'e.g. half the soy sauce; 15 min in the oven is enough', updSend: 'Submit', updDone: 'Updated', updOpen: 'Waiting', updSaved: 'Submitted; it will be handled at the next recipe update.', updDelA: 'Delete this note', addDish: '+ Add a dish', pickFor: d => `Choosing a dish for ${d}: tap one, then “Add to ${d}”.`, pickCancel: 'Cancel', dinnerH: 'Dinner plan', logFuture: 'You can log what you ate here on the day.', loggedH: 'Logged', addOut: '+ Eating out', loOf: n => `Leftovers · ${n}`, loFrom: d => `Cooked ${d}`, outT: 'Eating out', outPh: 'Restaurant, or paste a Google Maps share link', mapsBtn: 'Google Maps', mapsFind: 'Find on Google Maps', placeOk: 'Confirm this place', placeEdit: 'Change', placeHint: 'Find the restaurant in Google Maps (you can paste its share link back here); once confirmed, tapping the name opens that place directly.', mapsHint: 'In Google Maps tap Share → Copy link and paste it above.', loPickH: 'Leftovers of which dish?', loPortion: 'How much', portionX: p => `${p} ${p === 1 ? 'portion' : 'portions'}`, loNone: 'Nothing planned earlier this week yet.', cancelPick: 'Cancel',
@@ -1163,7 +1176,7 @@ function viewRecipe() {
   return `<main>
     <div class="bar"><button class="back" data-act="back">${t('back')}</button>
       <button class="save small" data-act="save" data-id="${r.id}" aria-pressed="${!!S.saved[r.id]}" aria-label="${t('saveL')}">${ICON.mark}</button>${langBtn()}</div>
-    <div>${cover(r, 'detail-cover')}</div>
+    <div class="dcwrap">${cover(r, 'detail-cover')}<button class="addfab${S.addedDay != null ? ' done' : ''}" data-act="addsheet">${S.addedDay != null ? '✓ ' + esc(t('addedFab', dayName(S.addedDay))) : '＋ ' + t('addFab')}</button></div>
     <div class="intro"><span class="eyebrow">${esc(rf(r, 'cuisine'))} · ${esc(rf(r, 'time'))}</span><h1>${esc(title(r))}</h1><span class="en">${esc(subtitle(r))}</span>
       <p>${esc(rf(r, 'blurb'))}</p><p class="muted">${t('source', `<a href="${r.url}">${esc(r.creator)}</a>`, /instagram\.com/.test(r.url || ''))}</p>${S.saved[r.id] ? starsRow(r.id) : `<button class="linkish" data-act="save" data-id="${r.id}">${t('saveToRate')}</button>`}
       ${(S.partnerSaved || {})[r.id] ? `<p class="sync">${esc(S.partnerSaved[r.id].map(x => t('partnerRated', x.name, x.rating)).join(t('sep')))}</p>` : ''}</div>
@@ -1183,14 +1196,13 @@ function viewRecipe() {
     <ol class="steps">${vf(r, verKey, 'steps').map(s => `<li><span>${esc(s)}</span></li>`).join('')}</ol>
     <div class="section-title" id="plan-add"><span class="eyebrow">${t('s3')}</span><h2>${t('addTitle')}</h2></div>
     <section class="panel">
-      <div class="days" role="group" aria-label="${t('pickDay')}">${DAYS_I[LANG].map((d, i) => `<button data-act="day" data-d="${i}" aria-pressed="${S.addDay === i}">${d}</button>`).join('')}</div>
-      <button class="action" data-act="add">${t('addBtn', dayName(S.addDay), t(verKey === 'light' ? 'light' : 'orig'), S.servings)}</button>
+      <button class="action" data-act="addsheet">＋ ${t('addFab')}</button>
       ${S.addedDay != null ? `<span class="toast" role="status">${esc(t('added', dayName(S.addedDay)))}</span>` : ''}
       <button class="ghost" data-act="rlog" style="align-self:flex-start">${t('logRecipe')} · ${t('portionN', 1)}</button>
       ${S.logged === r.id ? `<span class="toast" role="status">${t('logged')}</span>` : ''}
     </section>
     ${updatesSection(r)}
-  </main>`;
+  </main>${S.addSheet ? addSheet(r, verKey) : ''}`;
 }
 
 function isCook(e) { return !e.kind || e.kind === 'recipe'; }
@@ -1312,6 +1324,13 @@ function tabs() {
   return `<nav class="tabs" aria-label="${t('nav')}">${tb.map(([k, name, ic, b]) => `<button data-act="tab" data-t="${k}" ${S.tab === k ? 'aria-current="page"' : ''}>${ic}${b ? `<span class="badge">${b}</span>` : ''}${name}</button>`).join('')}</nav>`;
 }
 function langBtn() { return `<button class="lang" data-act="lang" aria-label="${t('langAria')}" lang="${LANG === 'en' ? 'zh-Hans' : 'en'}">${t('langBtn')}</button>`; }
+function addSheet(r, verKey) {
+  const cnt = i => S.plan.filter(e => e.day === i).length;
+  return `<div class="sheet-bg" data-act="sheetx"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-t">
+    <h2 id="sh-t">${t('pickDayQ')}</h2><p class="muted small">${esc(title(r))} · ${t(verKey === 'light' ? 'light' : 'orig')} · ${t('nServ', S.servings)}</p>
+    <div class="sdays">${DAYS_I[LANG].map((d, i) => `<button data-act="addto" data-d="${i}" aria-pressed="${S.pickDay === i}"><b>${d}</b><span>${cnt(i) ? t('nDish', cnt(i)) : '—'}</span></button>`).join('')}</div>
+    <button class="ghost" data-act="sheetx">${t('planCancelS')}</button></div>`;
+}
 function render() {
   document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-Hans'; document.title = t('title');
   if (Sync.enabled && Sync.st.stage !== 'ready') { document.getElementById('app').innerHTML = viewAuth(); return; }
@@ -1323,7 +1342,7 @@ document.addEventListener('click', ev => {
   const b = ev.target.closest('[data-act]'); if (!b) return;
   // dropdowns and text boxes handle themselves: re-rendering on tap would close them before they open (iPhone)
   if (b.tagName === 'SELECT' || b.tagName === 'TEXTAREA' || (b.tagName === 'INPUT' && !/^(checkbox|radio)$/.test(b.type))) return;
-  const a = b.dataset.act; if (a === 'check' || a === 'prep') return;
+  let a = b.dataset.act; if (a === 'check' || a === 'prep') return;
   const val = id => (document.getElementById(id) || {}).value || '';
   if (a === 'a-mode') { Sync.st.email = val('a-email').trim(); Sync.setMode(b.dataset.m); return; }
   if (a === 'a-login') { const e = val('a-email').trim(), pw = val('a-pw'); if (e && pw) Sync.signIn(e, pw, Sync.st.mode === 'new'); return; }
@@ -1352,6 +1371,9 @@ document.addEventListener('click', ev => {
   if (a === 'ver') { S.ver = b.dataset.v; S.addedDay = null; }
   if (a === 'serv') { S.servings = +b.dataset.s; S.addedDay = null; }
   if (a === 'day') { S.addDay = +b.dataset.d; S.addedDay = null; }
+  if (a === 'addsheet') S.addSheet = true;
+  if (a === 'sheetx') S.addSheet = false;
+  if (a === 'addto') { S.addDay = +b.dataset.d; S.addSheet = false; a = 'add'; }
   if (a === 'add') { const r = byId(S.recipe); const e = { uid: Sync.newId(), id: r.id, ver: r.versions.light ? S.ver : 'orig', servings: S.servings, day: S.addDay }; S.plan.push(e); Sync.op('plan_upsert', e); S.addedDay = S.addDay; if (S.pickDay != null) { S.planDay = S.addDay; S.pickDay = null; S.tab = 'plan'; S.recipe = null; window.scrollTo(0, 0); } }
   if (a === 'pserv') { const e = S.plan[+b.dataset.i]; e.servings = +b.dataset.s; Sync.op('plan_upsert', e); }
   if (a === 'pver') { const e = S.plan[+b.dataset.i]; e.ver = e.ver === 'light' ? 'orig' : 'light'; Sync.op('plan_upsert', e); }
@@ -2327,7 +2349,7 @@ function catLegend() { return `<div class="legend">${Object.keys(CAT_COLOR).map(
 //   weekday: {kcal, P, F, C}, weekend: {kcal, P, F, C}, lastCheckin: 'YYYY-MM-DD' }
 Object.assign(T.zh, {
   planH: '目标和计划', goalLb: '目标体重 lb', rateLb: '每周 lb', tdeeL: '每日消耗 kcal', rateHint: '每周变化填负数表示减重，比如 −1 就是每周减 1 lb。', wkdayH: '工作日（周一到周五）',
-  wkendH: '周末（周六、周日）', splitL: '周末用不同的目标', styleL: '饮食类型', stBal: '均衡', stLowfat: '低脂', stLowcarb: '低碳', stKeto: '生酮', protL: '蛋白 g / lb 体重', highL: '高热量日', highPctL: '高热量日多吃', calcBtn: '按设置算出目标', normalH: '普通日', highH: d => `高热量日（${d}）`, calcNote: '先选好上面的设置点「算出目标」，下面的数字也可以再手动改。', kcalS: '热量', pS: '蛋白', fS: '脂肪', cS: '碳水', planSave: '保存计划', planSaved: '计划已保存。',
+  wkendH: '周末（周六、周日）', splitL: '周末用不同的目标', styleL: '饮食类型', stBal: '均衡', stLowfat: '低脂', stLowcarb: '低碳', stKeto: '生酮', protL: '蛋白 g / lb 体重', highL: '高热量日', highPctL: '高热量日多吃', calcBtn: '按设置算出目标', normalH: '普通日', highH: d => `高热量日（${d}）`, calcNote: '先选好上面的设置点「算出目标」，下面的数字也可以再手动改。', kcalS: '热量', pS: '蛋白', fS: '脂肪', cS: '碳水', planSave: '保存计划', planEditBtn: '修改', planCancel: '取消', planSaved: '计划已保存。',
   planNone: '还没有计划：设一个目标体重和速度，每天的热量和三大营养素目标就有了。', planSetup: '设置计划',
   ciH: '每周检查', ciNext: d => `下次检查：${d}`, ciReady: '本周检查已经可以做了', ciGo: '开始检查', ciDo: '查看建议',
   ciNoData: (n, w) => `数据还不够（近 3 周记了 ${n} 天饮食、${w} 次体重），先沿用当前的消耗 ${''}估算。连续记 2–3 周后会按你的真实数据算。`,
@@ -2340,7 +2362,7 @@ Object.assign(T.zh, {
 });
 Object.assign(T.en, {
   planH: 'Goal & plan', goalLb: 'Goal weight (lb)', rateLb: 'Lb per week', tdeeL: 'Expenditure (kcal)', rateHint: 'Lb per week: negative to lose, e.g. −1 loses 1 lb a week.', wkdayH: 'Weekdays (Mon–Fri)',
-  wkendH: 'Weekend (Sat–Sun)', splitL: 'Different targets on the weekend', styleL: 'Diet style', stBal: 'Balanced', stLowfat: 'Low fat', stLowcarb: 'Low carb', stKeto: 'Keto', protL: 'Protein g per lb', highL: 'High days', highPctL: 'Extra on high days', calcBtn: 'Calculate targets', normalH: 'Normal days', highH: d => `High days (${d})`, calcNote: 'Pick the settings above and tap Calculate; you can still edit the numbers below.', kcalS: 'Calories', pS: 'Protein', fS: 'Fat', cS: 'Carbs', planSave: 'Save plan', planSaved: 'Plan saved.',
+  wkendH: 'Weekend (Sat–Sun)', splitL: 'Different targets on the weekend', styleL: 'Diet style', stBal: 'Balanced', stLowfat: 'Low fat', stLowcarb: 'Low carb', stKeto: 'Keto', protL: 'Protein g per lb', highL: 'High days', highPctL: 'Extra on high days', calcBtn: 'Calculate targets', normalH: 'Normal days', highH: d => `High days (${d})`, calcNote: 'Pick the settings above and tap Calculate; you can still edit the numbers below.', kcalS: 'Calories', pS: 'Protein', fS: 'Fat', cS: 'Carbs', planSave: 'Save plan', planEditBtn: 'Edit', planCancel: 'Cancel', planSaved: 'Plan saved.',
   planNone: 'No plan yet: set a goal weight and pace, and you get daily calorie and macro targets.', planSetup: 'Set up a plan',
   ciH: 'Weekly check-in', ciNext: d => `Next check-in: ${d}`, ciReady: 'This week’s check-in is ready', ciGo: 'Start check-in', ciDo: 'See suggestion',
   ciNoData: (n, w) => `Not enough data yet (${n} days of food and ${w} weigh-ins in the last 3 weeks), so the current expenditure is kept. After 2–3 weeks of steady logging it uses your real numbers.`,
@@ -2429,6 +2451,15 @@ function goalsPanel() {
         <button class="${due ? 'action' : 'ghost'}" data-act="ci-show">${due ? t('ciGo') : t('ciDo')}</button></div>`;
     }
   }
+  if (p && !S.planEdit) {
+    const hd = highDaysOf(p), st = { balanced: 'stBal', lowfat: 'stLowfat', lowcarb: 'stLowcarb', keto: 'stKeto' }[p.style || 'balanced'];
+    const kv = (k, v) => `<div class="kv"><span>${k}</span><b>${esc(String(v))}</b></div>`;
+    const mrow = (lab, x) => x && x.kcal ? `<div class="cirow"><b>${esc(lab)}</b><span>${x.kcal} kcal · P ${x.P} · F ${x.F} · C ${x.C}</span></div>` : '';
+    return `<section class="panel"><div class="row between"><span class="label">${t('planH')}</span><button class="ghost sm" data-act="pl-setup">${t('planEditBtn')}</button></div>
+      <div class="kvs">${kv(t('goalLb'), p.goalLb ?? '—')}${kv(t('rateLb'), p.rateLb ?? '—')}${kv(t('tdeeL'), p.tdee ? p.tdee + ' kcal' : '—')}${kv(t('styleL'), t(st))}${kv(t('protL'), p.protPerLb ?? 0.8)}${hd.length ? kv(t('highL'), hd.map(i => DAYS_I[LANG][i]).join(LANG === 'en' ? ', ' : '、') + ' · +' + (+p.highPct || 0) + '%') : ''}</div>
+      ${mrow(hd.length ? t('normalH') : t('wkdayH').replace(/（.*）| \(.*\)/, ''), p.weekday)}${hd.length ? mrow(t('highH', hd.map(i => DAYS_I[LANG][i]).join(LANG === 'en' ? ', ' : '、')), p.weekend) : ''}
+      ${msg}${ci}</section>`;
+  }
   return `<section class="panel"><span class="label">${t('planH')}</span>
     <div class="three"><label class="field"><span>${t('goalLb')}</span><input id="pl-goal" type="number" inputmode="decimal" step="0.1" value="${q.goalLb ?? ''}"></label>
       <label class="field"><span>${t('rateLb')}</span><input id="pl-rate" type="number" inputmode="decimal" step="0.1" value="${q.rateLb ?? ''}"></label>
@@ -2441,7 +2472,7 @@ function goalsPanel() {
     <button class="ghost" data-act="pl-calc">${t('calcBtn')}</button><p class="muted small">${t('calcNote')}</p>
     <span class="label sub">${highDaysOf(q).length ? t('normalH') : t('wkdayH').replace(/（.*）| \(.*\)/, '')}</span>${macroRow('pd', q.weekday)}
     ${highDaysOf(q).length ? `<span class="label sub">${esc(t('highH', highDaysOf(q).map(i => DAYS_I[LANG][i]).join(LANG === 'en' ? ', ' : '、')))}</span>${macroRow('pe', q.weekend)}` : ''}
-    <button class="action" data-act="pl-save">${t('planSave')}</button>${msg}${ci}
+    <div class="row"><button class="action" data-act="pl-save">${t('planSave')}</button>${p ? `<button class="ghost" data-act="pl-cancel">${t('planCancel')}</button>` : ''}</div>${msg}
     <p class="muted">${t('goalsHint')}</p></section>`;
 }
 
@@ -2468,6 +2499,7 @@ function goalsClick(a, b) {
   switch (a) {
     case 'tinfo': S.tInfo = { ...(S.tInfo || {}), [b.dataset.id]: !(S.tInfo || {})[b.dataset.id] }; break;
     case 'pl-setup': S.planEdit = true; S.planMsg = ''; break;
+    case 'pl-cancel': S.planEdit = false; S.planDraft = null; S.planMsg = ''; break;
     case 'pl-style': S.planDraft = { ...readPlanForm(p), style: b.dataset.v }; break;
     case 'pl-day': { const d0 = readPlanForm(p), i = +b.dataset.d, hd = highDaysOf(d0); const nh = hd.includes(i) ? hd.filter(x => x !== i) : [...hd, i].sort(); S.planDraft = { ...d0, highDays: nh, split: nh.length > 0 }; break; }
     case 'pl-pct': S.planDraft = { ...readPlanForm(p), highPct: +b.dataset.v }; break;
