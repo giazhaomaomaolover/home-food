@@ -314,6 +314,19 @@ ul.log li:last-child { border-bottom: 0; }
 .check input, .ing input { accent-color: var(--ink); }
 .panel > .label, .tcard .label { font-size: 13px; font-weight: 600; color: var(--muted); }
 /* Today */
+.four { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: end; }
+.four .field span, .three .field span { font-size: 12px; }
+.four .field input, .three .field input { padding: 0 10px; font-size: 16px; }
+.label.sub { margin-top: 4px; }
+.ci { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.cirow { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; } .cirow span { font-variant-numeric: tabular-nums; }
+.cibanner { text-decoration: none; border: 0; border-radius: 14px; background: #FFF4D6; color: var(--ink); text-align: left; padding: 12px 14px; font-size: 14px; font-weight: 600; }
+.insights { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ins { background: var(--ivory); border-radius: 18px; padding: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 3px; }
+.ins:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.ins span { font-size: 12.5px; color: var(--muted); font-weight: 600; } .ins b { font-size: 18px; font-weight: 800; } .ins b small { font-size: 12px; }
+.ins em { font-style: normal; font-size: 12px; color: var(--muted); }
 .wcard { background: var(--ivory); border-radius: 20px; padding: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 6px; }
 .whead { display: flex; justify-content: space-between; align-items: baseline; }
 .wmeta { font-size: 12.5px; color: var(--muted); font-weight: 600; }
@@ -779,7 +792,7 @@ const Sync = (() => {
       sb.from('plan_entries').select('id, day, recipe_id, ver, servings, kind, note, portion').eq('household_id', h).eq('week_start', wk).order('updated_at'),
       sb.from('shopping_checks').select('item_key').eq('household_id', h).eq('week_start', wk),
       sb.from('favorites').select('user_id, recipe_id, rating'),
-      sb.from('members').select('user_id, display_name, kcal_goal, protein_goal').eq('household_id', h),
+      sb.from('members').select('user_id, display_name, kcal_goal, protein_goal, plan').eq('household_id', h),
       sb.from('health_daily').select('day, source, steps, active_kcal, resting_hr, weight_kg, exercise_min, sleep_min, sleep_score, readiness, hrv_ms, body_fat_pct').eq('user_id', st.user.id).gte('day', ymd(since)),
       sb.from('saved_foods').select('id, name, kcal, protein_g, carbs_g, fat_g, uses, last_used').eq('household_id', h),
       sb.from('intake_logs').select('id, user_id, eaten_on, meal, recipe_id, ver, portion, label, kcal, protein_g, carbs_g, fat_g').gte('eaten_on', ymd(since)).order('created_at'),
@@ -792,7 +805,7 @@ const Sync = (() => {
     st.members = mem.data; st.status = 'idle';
     const me = st.user.id, nameOf = id => (mem.data.find(m => m.user_id === id) || {}).display_name || '';
     S.saved = Object.fromEntries(favs.data.filter(r => r.user_id === me).map(r => [r.recipe_id, r.rating || true]));
-    S.goals = Object.fromEntries(mem.data.map(m => [m.user_id, { kcal: m.kcal_goal, protein: m.protein_goal }]));
+    S.goals = Object.fromEntries(mem.data.map(m => [m.user_id, { kcal: m.kcal_goal, protein: m.protein_goal, plan: m.plan || null }]));
     S.intake = intake.data.map(r => ({ uid: r.id, user: r.user_id, date: r.eaten_on, meal: r.meal, recipe_id: r.recipe_id, ver: r.ver, portion: +r.portion, label: r.label || '', kcal: r.kcal || 0, P: r.protein_g || 0, C: r.carbs_g || 0, F: r.fat_g || 0 }));
     S.foods = foods.data.map(r => ({ id: r.id, name: r.name, kcal: r.kcal, P: r.protein_g, C: r.carbs_g, F: r.fat_g, uses: r.uses, last_used: r.last_used }));
     save('foods', S.foods);
@@ -832,6 +845,7 @@ const Sync = (() => {
     if (type === 'check_del') return sb.from('shopping_checks').delete().match({ household_id: h, week_start: week, item_key: p });
     if (type === 'intake_upsert') return sb.from('intake_logs').upsert({ id: p.uid, user_id: p.user || me, created_by: me, eaten_on: p.date, meal: p.meal, recipe_id: p.recipe_id, ver: p.ver, portion: p.portion, label: p.label || null, kcal: p.kcal, protein_g: p.P, carbs_g: p.C, fat_g: p.F, updated_at: new Date().toISOString() });
     if (type === 'intake_delete') return sb.from('intake_logs').delete().eq('id', p);
+    if (type === 'plan_save') return sb.from('members').update({ plan: p, kcal_goal: p.weekday.kcal || null, protein_goal: p.weekday.P || null }).eq('user_id', me);
     if (type === 'goals_save') return sb.from('members').update({ kcal_goal: p.kcal, protein_goal: p.protein }).eq('user_id', me);
     if (type === 'food_upsert') return sb.from('saved_foods').upsert({ id: p.id, household_id: h, name: p.name, kcal: p.kcal, protein_g: p.P, carbs_g: p.C, fat_g: p.F, uses: p.uses, last_used: p.last_used });
     if (type === 'food_delete') return sb.from('saved_foods').delete().eq('id', p);
@@ -1204,7 +1218,7 @@ document.addEventListener('click', ev => {
   if (a === 'a-join') { const c = val('a-join').trim(); if (c) Sync.joinHousehold(c, val('a-name').trim()); return; }
   if (a === 'a-out') { Sync.signOut(); return; }
   if (a === 'a-pw') { const pw = val('a-newpw'); if (pw) Sync.changePassword(pw); return; }
-  if (fitnessClick(a, b)) return;
+  if (fitnessClick(a, b) || goalsClick(a, b)) return;
   if (a === 'jump') { ev.preventDefault(); document.getElementById('plan-add').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); return; }
   const toTop = a === 'open' || a === 'back' || a === 'tab';
   if (a === 'open') { const r = byId(b.dataset.id); S.tab = 'cook'; S.recipe = r.id; S.ver = pickVer(r); S.servings = 2; S.addedDay = null; S.logged = null; }
@@ -1364,14 +1378,14 @@ function viewToday() {
   const people = Sync.enabled && Sync.st.members.length > 1 ? Sync.st.members : null;
   const rows = S.intake.filter(e => e.user === who && e.date === date);
   const sum = k => rows.reduce((x, e) => x + (e[k] || 0), 0);
-  const g = S.goals[who] || {};
+  const g = S.goals[who] || {}, tg = targetsFor(who, date);
   const name = people ? ((people.find(m => m.user_id === who) || {}).display_name || '') : '';
-  const kc = sum('kcal'), gk = +g.kcal || 0, over = gk && kc > gk;
+  const kc = sum('kcal'), gk = tg.kcal, over = gk && kc > gk;
   const ringPct = gk ? Math.min(1, kc / gk) : 0, C = 2 * Math.PI * 40;
   const ring = `<svg class="ring" width="96" height="96" viewBox="0 0 96 96" role="img" aria-label="${gk ? Math.round(kc / gk * 100) + '%' : kc + ' kcal'}"><circle cx="48" cy="48" r="40" class="rbg"/>${gk ? `<circle cx="48" cy="48" r="40" class="rfg${over ? ' over' : ''}" stroke-dasharray="${(C * ringPct).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 48 48)"/>` : ''}
     <path d="M48 36c-5 6-8 9-8 14a8 8 0 0 0 16 0c0-3-1.5-5-3.5-7-.5 3-2 4-3.5 4 1-4 0-8-1-11z" class="flame"/></svg>`;
   const big = gk ? Math.abs(gk - kc) : kc;
-  const mac = [['P', t('protein'), +g.protein || 0, 'm-p'], ['C', t('carbs'), 0, 'm-c'], ['F', t('fat'), 0, 'm-f']].map(([k, n, goal, cls]) => {
+  const mac = [['P', t('protein'), tg.P, 'm-p'], ['C', t('carbs'), tg.C, 'm-c'], ['F', t('fat'), tg.F, 'm-f']].map(([k, n, goal, cls]) => {
     const v = sum(k), pct = goal ? Math.min(100, Math.round(v / goal * 100)) : 0;
     return `<div class="mac ${cls}"><b>${goal ? Math.max(0, goal - v) : v}<small>g</small></b><span>${goal ? t('macLeft', n) : t('macEaten', n)}</span>
       <div class="mtrack"><i style="width:${goal ? pct : Math.min(100, v)}%"></i></div></div>`;
@@ -1379,7 +1393,7 @@ function viewToday() {
   const summary = `<section class="sumcard"><div><b class="big">${big.toLocaleString()}</b><span class="sl">${gk ? t(over ? 'kOver' : 'kLeft') : t('kEaten')}</span>
       ${gk ? `<span class="ss">${t('eatGoal', kc.toLocaleString(), gk.toLocaleString())}</span>` : ''}</div>${ring}</section>
     <div class="macs">${mac}</div>
-    ${!g.kcal && !g.protein ? `<p class="muted">${mine ? `<button class="linkish" data-act="tab" data-t="me">${t('goalSet')}</button>` : t('partnerNoGoal')}</p>` : ''}`;
+    ${mine && checkinDue(who) ? `<button class="cibanner linkish" data-act="tab" data-t="me">${t('ciBanner')}</button>` : ''}${!tg.kcal && !tg.P ? `<p class="muted">${mine ? `<button class="linkish" data-act="tab" data-t="me">${t('goalSet')}</button>` : t('partnerNoGoal')}</p>` : ''}`;
   const meals = MEALS.map(m => {
     const list = rows.filter(e => e.meal === m);
     if (!list.length) return '';
@@ -1461,15 +1475,6 @@ function logPanel(d, date) {
     ${S.logMsg ? `<span class="toast" role="status">${esc(S.logMsg)}</span>` : ''}</section>`;
 }
 
-function goalsPanel() {
-  const g = S.goals[me()] || {};
-  return `<section class="panel"><span class="label">${t('goalsH')}</span>
-    <div class="two"><label class="field"><span>${t('kcalGoal')}</span><input id="g-kcal" type="number" inputmode="numeric" min="800" max="6000" value="${g.kcal || ''}"></label>
-    <label class="field"><span>${t('proteinGoal')}</span><input id="g-p" type="number" inputmode="numeric" min="20" max="400" value="${g.protein || ''}"></label></div>
-    <button class="action" data-act="gsave">${t('saveGoals')}</button>${S.logMsg === t('goalsSaved') ? `<span class="toast" role="status">${t('goalsSaved')}</span>` : ''}
-    <p class="muted">${t('goalsHint')}</p></section>`;
-}
-
 // clicks for this tab; returns true when handled
 function fitnessClick(a, b) {
   const val = id => (document.getElementById(id) || {}).value || '';
@@ -1543,10 +1548,6 @@ function fitnessClick(a, b) {
       reset(); S.logMsg = S.alsoPartner && partner() ? t('loggedBoth', partner().display_name || '') : t('logged'); break;
     }
     case 'ldel': { const i = S.intake.findIndex(e => e.uid === b.dataset.u); if (i >= 0) { S.intake.splice(i, 1); persistFit(); Sync.op('intake_delete', b.dataset.u); } break; }
-    case 'gsave': {
-      const kcal = Math.round(+val('g-kcal')) || null, protein = Math.round(+val('g-p')) || null;
-      S.goals[me()] = { kcal, protein }; persistFit(); Sync.op('goals_save', { kcal, protein }); S.logMsg = t('goalsSaved'); break;
-    }
     case 'rlog': {   // from the recipe page: log the version and portion being viewed
       const r = byId(S.recipe), ver = r.versions.light ? S.ver : 'orig';
       addEntry(recipeEntry(r, ver, 1, defaultMeal(), ymdOf(dateAt(0)))); S.logged = r.id; break;
@@ -1915,7 +1916,7 @@ function viewTrends() {
   }
   const people = Sync.enabled && Sync.st.members.length > 1 ? Sync.st.members : null;
   const whoSeg = people ? `<div class="seg" role="group" aria-label="${t('whose')}" style="align-self:flex-start">${people.map(m => `<button data-act="whose" data-u="${m.user_id}" aria-pressed="${m.user_id === who}">${esc(m.display_name || '—')}</button>`).join('')}</div>` : '';
-  return `${whoSeg}<div class="seg" role="group" aria-label="${t('viewTrends')}" style="align-self:flex-start">${[7, 30].map(n => `<button data-act="trange" data-n="${n}" aria-pressed="${S.trendRange === n}">${t(n === 7 ? 'range7' : 'range30')}</button>`).join('')}</div>
+  return `${whoSeg}${insightCards(who)}<div class="seg" role="group" aria-label="${t('viewTrends')}" style="align-self:flex-start">${[7, 30].map(n => `<button data-act="trange" data-n="${n}" aria-pressed="${S.trendRange === n}">${t(n === 7 ? 'range7' : 'range30')}</button>`).join('')}</div>
     <p class="muted">${t('tapHint')}</p>${cards}`;
 }
 
@@ -1927,6 +1928,184 @@ function showTip(el) {
 }
 document.addEventListener('pointerover', ev => { if (ev.target.classList && ev.target.classList.contains('hit')) showTip(ev.target); });
 document.addEventListener('click', ev => { if (ev.target.classList && ev.target.classList.contains('hit')) { ev.stopPropagation(); showTip(ev.target); } }, true);
+
+// ---- Goal, plan, expenditure and weekly check-in (the MacroFactor idea, kept small) ----
+// plan (stored on the member row, visible to the partner like the old goals):
+// { goalLb, rateLb (per week, negative = lose), startLb, startDay, tdee (kcal/day), split (weekend different),
+//   weekday: {kcal, P, F, C}, weekend: {kcal, P, F, C}, lastCheckin: 'YYYY-MM-DD' }
+Object.assign(T.zh, {
+  planH: '目标和计划', goalLb: '目标体重 lb', rateLb: '每周 lb', tdeeL: '每日消耗 kcal', rateHint: '每周变化填负数表示减重，比如 −1 就是每周减 1 lb。', wkdayH: '工作日（周一到周五）',
+  wkendH: '周末（周六、周日）', splitL: '周末用不同的目标', kcalS: '热量', pS: '蛋白', fS: '脂肪', cS: '碳水', planSave: '保存计划', planSaved: '计划已保存。',
+  planNone: '还没有计划：设一个目标体重和速度，每天的热量和三大营养素目标就有了。', planSetup: '设置计划',
+  ciH: '每周检查', ciNext: d => `下次检查：${d}`, ciReady: '本周检查已经可以做了', ciGo: '开始检查', ciDo: '查看建议',
+  ciNoData: (n, w) => `数据还不够（近 3 周记了 ${n} 天饮食、${w} 次体重），先沿用当前的消耗 ${''}估算。连续记 2–3 周后会按你的真实数据算。`,
+  ciData: (n, w) => `根据近 3 周 ${n} 天饮食记录和 ${w} 次体重估算。`,
+  ciNew: '建议的新目标', ciApply: '采用新目标', ciKeep: '保持不变', ciDone: '已更新目标。', ciKept: '目标没有改动，下周再检查。',
+  ciBanner: '本周检查可以做了：去「我 → 设置」看看要不要调整目标。',
+  expH: '每日消耗（估算）', expSub: (n) => n ? `按 ${n} 天记录估算` : '初始估算，记满 2–3 周后会按你的数据更新', balH: '近 7 天能量差',
+  balV: v => `${v > 0 ? '盈余' : '缺口'} ${Math.abs(v)} kcal/天`, balNone: '近 7 天还没记饮食', progH: '目标进度',
+  progV: (now, goal, pct) => `${now} → ${goal} lb · ${pct}%`, weekdayShort: '工作日', weekendShort: '周末',
+});
+Object.assign(T.en, {
+  planH: 'Goal & plan', goalLb: 'Goal weight (lb)', rateLb: 'Lb per week', tdeeL: 'Expenditure (kcal)', rateHint: 'Lb per week: negative to lose, e.g. −1 loses 1 lb a week.', wkdayH: 'Weekdays (Mon–Fri)',
+  wkendH: 'Weekend (Sat–Sun)', splitL: 'Different targets on the weekend', kcalS: 'Calories', pS: 'Protein', fS: 'Fat', cS: 'Carbs', planSave: 'Save plan', planSaved: 'Plan saved.',
+  planNone: 'No plan yet: set a goal weight and pace, and you get daily calorie and macro targets.', planSetup: 'Set up a plan',
+  ciH: 'Weekly check-in', ciNext: d => `Next check-in: ${d}`, ciReady: 'This week’s check-in is ready', ciGo: 'Start check-in', ciDo: 'See suggestion',
+  ciNoData: (n, w) => `Not enough data yet (${n} days of food and ${w} weigh-ins in the last 3 weeks), so the current expenditure is kept. After 2–3 weeks of steady logging it uses your real numbers.`,
+  ciData: (n, w) => `Estimated from ${n} days of food and ${w} weigh-ins in the last 3 weeks.`,
+  ciNew: 'Suggested new targets', ciApply: 'Use new targets', ciKeep: 'Keep as is', ciDone: 'Targets updated.', ciKept: 'Targets unchanged; next check-in in a week.',
+  ciBanner: 'Your weekly check-in is ready: see Me → Settings to adjust your targets.',
+  expH: 'Expenditure (estimated)', expSub: (n) => n ? `Estimated from ${n} logged days` : 'Starting estimate; updates from your data after 2–3 weeks', balH: 'Energy balance, last 7 days',
+  balV: v => `${v > 0 ? 'surplus' : 'deficit'} ${Math.abs(v)} kcal/day`, balNone: 'No food logged in the last 7 days', progH: 'Goal progress',
+  progV: (now, goal, pct) => `${now} → ${goal} lb · ${pct}%`, weekdayShort: 'Weekdays', weekendShort: 'Weekend',
+});
+
+const isWeekend = ds => ((new Date(ds + 'T12:00:00').getDay() + 6) % 7) >= 5;
+function planOf(uid) { return (S.goals[uid] || {}).plan || null; }
+// the targets that apply on a given day
+function targetsFor(uid, ds) {
+  const g = S.goals[uid] || {}, p = g.plan;
+  if (p && p.weekday) { const x = p.split && isWeekend(ds) ? p.weekend : p.weekday; return { kcal: +x.kcal || 0, P: +x.P || 0, C: +x.C || 0, F: +x.F || 0 }; }
+  return { kcal: +g.kcal || 0, P: +g.protein || 0, C: 0, F: 0 };
+}
+
+// expenditure = average intake minus the energy in the trend-weight change (≈7700 kcal per kg),
+// blended with the previous estimate until there are three weeks of data
+function expenditure(uid, endDs) {
+  const p = planOf(uid) || {}, prior = +p.tdee || 0;
+  const end = new Date(endDs + 'T12:00:00'), days = [];
+  for (let i = 21; i >= 1; i--) { const d = new Date(end); d.setDate(d.getDate() - i); days.push(ymdOf(d)); }
+  const kcalOf = ds => S.intake.filter(e => e.user === uid && e.date === ds).reduce((a, e) => a + (e.kcal || 0), 0);
+  const logged = days.filter(ds => kcalOf(ds) > 0);
+  const mineW = uid === me() ? S.weights : {};
+  const weighs = days.filter(ds => mineW[ds]);
+  if (logged.length < 10 || weighs.length < 6 || uid !== me()) return { value: prior, ready: false, logged: logged.length, weighs: weighs.length };
+  const tr = weightTrend(days[days.length - 1]) || {};
+  const first = days.find(ds => tr[ds] != null), last = days[days.length - 1];
+  const span = (new Date(last) - new Date(first)) / 864e5;
+  if (!first || span < 14) return { value: prior, ready: false, logged: logged.length, weighs: weighs.length };
+  const avgIn = logged.reduce((a, ds) => a + kcalOf(ds), 0) / logged.length;
+  const raw = avgIn - (tr[last] - tr[first]) * 7700 / span;
+  const w = Math.min(1, logged.length / 21);
+  const value = Math.round(prior ? prior * (1 - w) + raw * w : raw);
+  return { value: Math.max(1000, Math.min(4500, value)), ready: true, logged: logged.length, weighs: weighs.length };
+}
+
+// new targets from an expenditure: weekly average = expenditure + pace; keep protein, keep the fat share, carbs fill the rest
+function proposeTargets(p, tdee) {
+  const avg = Math.round(tdee + (+p.rateLb || 0) * 3500 / 7);
+  const diff = p.split ? (+p.weekend.kcal - +p.weekday.kcal) : 0;
+  const wdK = Math.round(avg - 2 * diff / 7), weK = wdK + diff;
+  const mk = (kcal, base) => {
+    const P = +base.P || 0, fatShare = base.kcal ? (+base.F * 9) / +base.kcal : 0.3;
+    const F = Math.round(kcal * fatShare / 9), C = Math.max(0, Math.round((kcal - P * 4 - F * 9) / 4));
+    return { kcal, P, F, C };
+  };
+  return { weekday: mk(wdK, p.weekday), weekend: mk(weK, p.split ? p.weekend : p.weekday) };
+}
+function nextCheckin(p) { const d = new Date((p.lastCheckin || p.startDay) + 'T12:00:00'); d.setDate(d.getDate() + 7); return ymdOf(d); }
+function checkinDue(uid) { const p = planOf(uid); return !!(p && p.weekday && ymdOf(new Date()) >= nextCheckin(p)); }
+
+function macroRow(prefix, x) {
+  return `<div class="four">${[['kcal', 'kcalS'], ['P', 'pS'], ['F', 'fS'], ['C', 'cS']].map(([k, l]) =>
+    `<label class="field"><span>${t(l)}</span><input id="${prefix}-${k}" type="number" inputmode="numeric" min="0" max="6000" value="${x && x[k] != null ? x[k] : ''}"></label>`).join('')}</div>`;
+}
+// Me → Settings: replaces the old two-number goals panel
+function goalsPanel() {
+  const uid = me(), g = S.goals[uid] || {}, p = g.plan;
+  const msg = S.planMsg ? `<p class="toast" role="status">${esc(S.planMsg)}</p>` : '';
+  if (!p && !S.planEdit) {
+    return `<section class="panel"><span class="label">${t('planH')}</span><p class="muted">${t('planNone')}</p>
+      <button class="action" data-act="pl-setup">${t('planSetup')}</button>${msg}</section>`;
+  }
+  const q = S.planDraft || p || { goalLb: '', rateLb: -1, tdee: '', split: false, weekday: { kcal: g.kcal || '', P: g.protein || '' }, weekend: {} };
+  const ex = expenditure(uid, ymdOf(new Date()));
+  let ci = '';
+  if (p && p.weekday) {
+    if (S.ciShow) {
+      const tdee = ex.ready ? ex.value : +p.tdee, nt = proposeTargets(p, tdee);
+      const row = (lab, x) => `<div class="cirow"><b>${lab}</b><span>${x.kcal} kcal · P ${x.P} · F ${x.F} · C ${x.C}</span></div>`;
+      ci = `<div class="ci"><span class="label">${t('ciNew')}</span><p class="muted small">${esc(ex.ready ? t('ciData', ex.logged, ex.weighs) : t('ciNoData', ex.logged, ex.weighs))}</p>
+        <div class="cirow"><b>${t('tdeeL')}</b><span>${tdee} kcal</span></div>${row(t('weekdayShort'), nt.weekday)}${p.split ? row(t('weekendShort'), nt.weekend) : ''}
+        <div class="row"><button class="action" data-act="ci-apply">${t('ciApply')}</button><button class="ghost" data-act="ci-keep">${t('ciKeep')}</button></div></div>`;
+    } else {
+      const due = checkinDue(uid);
+      ci = `<div class="ci"><span class="label">${t('ciH')}</span><p class="muted small">${due ? t('ciReady') : esc(t('ciNext', nextCheckin(p)))}</p>
+        <button class="${due ? 'action' : 'ghost'}" data-act="ci-show">${due ? t('ciGo') : t('ciDo')}</button></div>`;
+    }
+  }
+  return `<section class="panel"><span class="label">${t('planH')}</span>
+    <div class="three"><label class="field"><span>${t('goalLb')}</span><input id="pl-goal" type="number" inputmode="decimal" step="0.1" value="${q.goalLb ?? ''}"></label>
+      <label class="field"><span>${t('rateLb')}</span><input id="pl-rate" type="number" inputmode="decimal" step="0.1" value="${q.rateLb ?? ''}"></label>
+      <label class="field"><span>${t('tdeeL')}</span><input id="pl-tdee" type="number" inputmode="numeric" value="${q.tdee ?? ''}"></label></div>
+    <p class="muted small">${t('rateHint')}</p>
+    <span class="label sub">${t('wkdayH')}</span>${macroRow('pd', q.weekday)}
+    <label class="check"><input id="pl-split" type="checkbox" ${q.split ? 'checked' : ''}> ${t('splitL')}</label>
+    ${q.split ? `<span class="label sub">${t('wkendH')}</span>${macroRow('pe', q.weekend)}` : ''}
+    <button class="action" data-act="pl-save">${t('planSave')}</button>${msg}${ci}
+    <p class="muted">${t('goalsHint')}</p></section>`;
+}
+
+function readPlanForm(old) {
+  const v = id => (document.getElementById(id) || {}).value, n = id => { const x = parseFloat(v(id)); return isFinite(x) ? x : null; };
+  const row = pre => ({ kcal: Math.round(n(pre + '-kcal') || 0), P: Math.round(n(pre + '-P') || 0), F: Math.round(n(pre + '-F') || 0), C: Math.round(n(pre + '-C') || 0) });
+  const split = !!(document.getElementById('pl-split') || {}).checked;
+  const weekday = row('pd');
+  const weekend = document.getElementById('pe-kcal') ? row('pe') : (old && old.weekend && old.weekend.kcal ? old.weekend : { ...weekday });
+  const lastW = Object.keys(S.weights).sort().pop();
+  return { ...(old || {}), goalLb: n('pl-goal'), rateLb: n('pl-rate') ?? 0, tdee: Math.round(n('pl-tdee') || 0) || null, split, weekday, weekend,
+    startLb: old && old.startLb ? old.startLb : (lastW ? toLb(S.weights[lastW].kg) : null),
+    startDay: old && old.startDay ? old.startDay : ymdOf(new Date()), lastCheckin: old && old.lastCheckin ? old.lastCheckin : ymdOf(new Date()) };
+}
+function savePlan(p) {
+  const uid = me();
+  S.goals[uid] = { ...(S.goals[uid] || {}), plan: p, kcal: p.weekday.kcal || null, protein: p.weekday.P || null };
+  persistFit(); Sync.op('plan_save', p);
+}
+function goalsClick(a, b) {
+  const uid = me(), p = planOf(uid);
+  switch (a) {
+    case 'pl-setup': S.planEdit = true; S.planMsg = ''; break;
+    case 'pl-split': return false;
+    case 'pl-save': { const np = readPlanForm(p); savePlan(np); S.planDraft = null; S.planMsg = t('planSaved'); S.planEdit = false; break; }
+    case 'ci-show': S.ciShow = true; S.planMsg = ''; break;
+    case 'ci-apply': {
+      const ex = expenditure(uid, ymdOf(new Date())), tdee = ex.ready ? ex.value : +p.tdee, nt = proposeTargets(p, tdee);
+      savePlan({ ...p, tdee, weekday: nt.weekday, weekend: nt.weekend, lastCheckin: ymdOf(new Date()) }); S.ciShow = false; S.planMsg = t('ciDone'); break;
+    }
+    case 'ci-keep': savePlan({ ...p, lastCheckin: ymdOf(new Date()) }); S.ciShow = false; S.planMsg = t('ciKept'); break;
+    default: return false;
+  }
+  render(); return true;
+}
+// the weekend checkbox shows or hides the weekend row right away
+document.addEventListener('change', ev => {
+  if (ev.target.id !== 'pl-split') return;
+  const p = readPlanForm(S.planDraft || planOf(me()) || null); p.split = ev.target.checked; if (p.split && !p.weekend.kcal) p.weekend = { ...p.weekday };
+  S.planDraft = p; render();
+});
+
+// Me → Trends: expenditure, energy balance and goal progress at the top
+function insightCards(who) {
+  if (who !== me()) return '';
+  const today = ymdOf(new Date()), p = planOf(who), ex = expenditure(who, today);
+  const cells = [];
+  if (ex.value) cells.push(`<div class="ins"><span>${t('expH')}</span><b>${ex.value.toLocaleString()} <small>kcal</small></b><em>${esc(t('expSub', ex.ready ? ex.logged : 0))}</em></div>`);
+  if (ex.value) {
+    const last7 = []; for (let i = 1; i <= 7; i++) { const d = new Date(); d.setDate(d.getDate() - i); last7.push(ymdOf(d)); }
+    const per = last7.map(ds => S.intake.filter(e => e.user === who && e.date === ds).reduce((a, e) => a + (e.kcal || 0), 0)).filter(v => v > 0);
+    cells.push(`<div class="ins"><span>${t('balH')}</span>${per.length ? `<b>${esc(t('balV', Math.round(per.reduce((a, b) => a + b, 0) / per.length - ex.value)))}</b>` : `<em>${t('balNone')}</em>`}</div>`);
+  }
+  const lastW = Object.keys(S.weights).filter(d => d <= today).sort().pop();
+  const firstW = p ? Object.keys(S.weights).filter(d => d >= (p.startDay || '')).sort()[0] : null;
+  const startLb = p && (p.startLb || (firstW ? toLb(S.weights[firstW].kg) : null));
+  if (p && p.goalLb && startLb && lastW) {
+    const now = toLb((weightTrend(today) || {})[today] ?? S.weights[lastW].kg);
+    const pct = Math.max(0, Math.min(100, Math.round((startLb - now) / (startLb - p.goalLb) * 100)));
+    cells.push(`<div class="ins"><span>${t('progH')}</span><b>${esc(t('progV', now.toFixed(1), p.goalLb, pct))}</b><div class="mtrack"><i style="width:${pct}%;background:var(--ok)"></i></div></div>`);
+  }
+  return cells.length ? `<div class="insights">${cells.join('')}</div>` : '';
+}
 
 render();
 Sync.init();
