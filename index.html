@@ -1383,7 +1383,9 @@ document.addEventListener('click', ev => {
 function parsePlace(note) {
   const s = String(note || ''), m = s.match(/https?:\/\/\S+/);
   const url = m && /(maps\.app\.goo\.gl|goo\.gl\/maps|google\.[a-z.]+\/maps|maps\.google\.)/i.test(m[0]) ? m[0] : null;
-  const name = s.replace(/https?:\/\/\S+/g, '').split('\n').map(x => x.trim()).filter(Boolean)[0] || '';
+  let name = s.replace(/https?:\/\/\S+/g, '').split('\n').map(x => x.trim()).filter(Boolean)[0] || '';
+  // a shared place often comes as "Name, 123 Street, City" or "Name 123 Street…": keep just the name
+  name = name.replace(/\s*[·|]\s.*$/, '').replace(/,.*$/, '').replace(/\s+\d{1,6}\s+[A-Za-z0-9].*$/, '').trim();
   return { url, name };
 }
 function mapsHref(note) {
