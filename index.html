@@ -763,7 +763,7 @@ const Sync = (() => {
     const h = st.household.id, wk = weekStart();
     const since = new Date(); since.setDate(since.getDate() - 35);
     const [plan, checks, favs, mem, health, foods, intake] = await Promise.all([
-      sb.from('plan_entries').select('id, day, recipe_id, ver, servings, kind, note').eq('household_id', h).eq('week_start', wk).order('updated_at'),
+      sb.from('plan_entries').select('id, day, recipe_id, ver, servings, kind, note, portion').eq('household_id', h).eq('week_start', wk).order('updated_at'),
       sb.from('shopping_checks').select('item_key').eq('household_id', h).eq('week_start', wk),
       sb.from('favorites').select('user_id, recipe_id, rating'),
       sb.from('members').select('user_id, display_name, kcal_goal, protein_goal').eq('household_id', h),
@@ -773,7 +773,7 @@ const Sync = (() => {
     ]);
     const err = plan.error || checks.error || favs.error || mem.error || intake.error || health.error || foods.error;
     if (err) { st.status = 'offline'; rerender(); return; }
-    S.plan = plan.data.filter(r => r.kind === 'out' || RECIPES.some(x => x.id === r.recipe_id)).map(r => ({ uid: r.id, id: r.recipe_id, ver: r.ver, servings: r.servings, day: r.day, kind: r.kind || 'recipe', note: r.note || '' }));
+    S.plan = plan.data.filter(r => r.kind === 'out' || RECIPES.some(x => x.id === r.recipe_id)).map(r => ({ uid: r.id, id: r.recipe_id, ver: r.ver, servings: r.servings, day: r.day, kind: r.kind || 'recipe', note: r.note || '', portion: +r.portion || 1 }));
     S.checked = Object.fromEntries(checks.data.map(r => [r.item_key, true]));
     st.members = mem.data; st.status = 'idle';
     const me = st.user.id, nameOf = id => (mem.data.find(m => m.user_id === id) || {}).display_name || '';
@@ -811,7 +811,7 @@ const Sync = (() => {
   }
   async function run({ type, payload: p, week }) {
     const h = st.household.id, me = st.user.id;
-    if (type === 'plan_upsert') return sb.from('plan_entries').upsert({ id: p.uid, household_id: h, week_start: week, day: p.day, recipe_id: p.id, ver: p.ver || 'orig', servings: p.servings || 2, kind: p.kind || 'recipe', note: p.note || null, updated_at: new Date().toISOString() });
+    if (type === 'plan_upsert') return sb.from('plan_entries').upsert({ id: p.uid, household_id: h, week_start: week, day: p.day, recipe_id: p.id, ver: p.ver || 'orig', servings: p.servings || 2, kind: p.kind || 'recipe', note: p.note || null, portion: +p.portion || 1, updated_at: new Date().toISOString() });
     if (type === 'plan_delete') return sb.from('plan_entries').delete().eq('id', p);
     if (type === 'check_add') return sb.from('shopping_checks').upsert({ household_id: h, week_start: week, item_key: p });
     if (type === 'check_del') return sb.from('shopping_checks').delete().match({ household_id: h, week_start: week, item_key: p });
@@ -870,7 +870,7 @@ const T = {
     ready: n => `备好 ${n}`, assume: '假设', s2: '02 / At the stove · 开火', steps: '步骤', s3: '03 / Plan · 安排', addTitle: '加入本周', pickDay: '选哪天',
     addBtn: (d, v, s) => `加入${d} · ${v} · ${s} 人份`, added: d => `已加入${d}，采购单已更新。`,
     planEyebrow: 'This week · 本周', planH: '一周晚饭', planSub: '每道菜单独选份数和版本，采购单跟着变。', switchTo: v => `换成${v}`, del: '删除',
-    delAria: n => `从计划里删除${n}`, none: '没安排', weekend: ' · 周末', planFoot: '剩菜和外食不进采购单。外食那天可以在「今天」拍照或手动记一笔。', addLo: '+ 剩菜', addOut: '+ 外食', loOf: n => `剩菜 · ${n}`, loFrom: d => `${d}做的`, outT: '外食', outPh: '去哪吃？（可选）', loPickH: '吃哪道的剩菜？', loNone: '这周前几天还没安排菜。', cancelPick: '取消',
+    delAria: n => `从计划里删除${n}`, none: '没安排', weekend: ' · 周末', planFoot: '剩菜和外食不进采购单。外食那天可以在「今天」拍照或手动记一笔。', addLo: '+ 剩菜', addOut: '+ 外食', loOf: n => `剩菜 · ${n}`, loFrom: d => `${d}做的`, outT: '外食', outPh: '去哪吃？（可选）', loPickH: '吃哪道的剩菜？', loPortion: '吃多少', portionX: p => `${p} 份`, loNone: '这周前几天还没安排菜。', cancelPick: '取消',
     shopEyebrow: 'Shopping · 采购', shopH: '采购单', shopStats: (d, n, x) => `${d} 道菜 · ${n} 项 · 已买 ${x}`, range: '采购范围', week: '全周', weekdays: '工作日', weekendR: '周末',
     pantry: '常备品：买之前先看看家里有没有。', selectAll: '全部打勾', unselectAll: '全部取消', shopEmpty: '这个范围里还没安排菜。去「本周」加几道。',
     shopFoot: '同一种食材、同一种单位会自动加在一起；勺和杯会换算合并，但不会把体积换成重量。米饭按生米算。', sep: '、',
@@ -897,7 +897,7 @@ const T = {
     ready: n => `${n} ready`, assume: 'Assumed', s2: '02 / At the stove', steps: 'Method', s3: '03 / Plan', addTitle: 'Add to this week', pickDay: 'Pick a day',
     addBtn: (d, v, s) => `Add to ${d} · ${v} · ${ser(s)}`, added: d => `Added to ${DAYS_LONG_EN[DAYS_I.en.indexOf(d)] || d}; shopping list updated.`,
     planEyebrow: 'This week', planH: 'Dinners this week', planSub: 'Pick servings and version for each dish; the shopping list follows.', switchTo: v => `Switch to ${v.toLowerCase()}`, del: 'Remove',
-    delAria: n => `Remove ${n} from the plan`, none: 'Nothing planned', weekend: ' · Weekend', planFoot: 'Leftovers and eating out don\u2019t add to the shopping list. On an eating-out day, log it in Today with a photo or by hand.', addLo: '+ Leftovers', addOut: '+ Eating out', loOf: n => `Leftovers · ${n}`, loFrom: d => `Cooked ${d}`, outT: 'Eating out', outPh: 'Where? (optional)', loPickH: 'Leftovers of which dish?', loNone: 'Nothing planned earlier this week yet.', cancelPick: 'Cancel',
+    delAria: n => `Remove ${n} from the plan`, none: 'Nothing planned', weekend: ' · Weekend', planFoot: 'Leftovers and eating out don\u2019t add to the shopping list. On an eating-out day, log it in Today with a photo or by hand.', addLo: '+ Leftovers', addOut: '+ Eating out', loOf: n => `Leftovers · ${n}`, loFrom: d => `Cooked ${d}`, outT: 'Eating out', outPh: 'Where? (optional)', loPickH: 'Leftovers of which dish?', loPortion: 'How much', portionX: p => `${p} ${p === 1 ? 'portion' : 'portions'}`, loNone: 'Nothing planned earlier this week yet.', cancelPick: 'Cancel',
     shopEyebrow: 'Shopping', shopH: 'Shopping list', shopStats: (d, n, x) => `${d} ${d === 1 ? 'dish' : 'dishes'} · ${n} items · ${x} bought`, range: 'Shopping range', week: 'Whole week', weekdays: 'Weekdays', weekendR: 'Weekend',
     pantry: 'Pantry staples: check what you already have before buying.', selectAll: 'Check all', unselectAll: 'Uncheck all', shopEmpty: 'Nothing planned in this range yet. Add a few dishes in This week.',
     shopFoot: 'The same ingredient in the same unit adds up automatically; spoons and cups are combined, but volume is never converted to weight. Rice is counted uncooked.', sep: ', ',
@@ -1071,8 +1071,9 @@ function viewPlan() {
       const r = byId(e.id), v = r.versions[e.ver] || r.versions.orig;
       if (e.kind === 'leftover') {
         const src = S.plan.find(x => isCook(x) && x.id === e.id && x.day < i);
-        return `<div class="entry kind-lo">${cover(r, 'thumb')}<button data-act="open" data-id="${r.id}" style="border:0;background:none;padding:0;text-align:left"><div class="t">${esc(t('loOf', title(r)))}</div><div class="s">${src ? esc(t('loFrom', dayLabel(src.day))) + ' · ' : ''}${v.n.kcal} ${t('pp')}</div></button><span></span>
-        <div class="ctl">${delBtn(t('loOf', title(r)))}</div></div>`;
+        return `<div class="entry kind-lo">${cover(r, 'thumb')}<button data-act="open" data-id="${r.id}" style="border:0;background:none;padding:0;text-align:left"><div class="t">${esc(t('loOf', title(r)))}</div><div class="s">${src ? esc(t('loFrom', dayLabel(src.day))) + ' · ' : ''}${t('portionX', +e.portion || 1)}</div></button><span></span>
+        <div class="ctl"><div class="seg" role="group" aria-label="${t('loPortion')}">${[0.5, 0.8, 1, 1.5].map(p => `<button data-act="pport" data-i="${idx}" data-p="${p}" aria-pressed="${(+e.portion || 1) === p}">${p}</button>`).join('')}</div><span class="muted">${t('portionX', +e.portion || 1).replace(/^[\d.]+\s*/, '')}</span>
+        ${delBtn(t('loOf', title(r)))}</div></div>`;
       }
       return `<div class="entry">${cover(r, 'thumb')}<button data-act="open" data-id="${r.id}" style="border:0;background:none;padding:0;text-align:left"><div class="t">${esc(title(r))}</div><div class="s">${t(e.ver === 'light' ? 'light' : 'orig')} · ${v.n.kcal} ${t('pp')}</div></button>${pill(v.status)}
         <div class="ctl"><div class="seg" role="group" aria-label="${t('servings')}">${[1, 2, 4].map(s => `<button data-act="pserv" data-i="${idx}" data-s="${s}" aria-pressed="${e.servings === s}">${t('nPpl', s)}</button>`).join('')}</div>
@@ -1176,6 +1177,8 @@ function render() {
 
 document.addEventListener('click', ev => {
   const b = ev.target.closest('[data-act]'); if (!b) return;
+  // dropdowns and text boxes handle themselves: re-rendering on tap would close them before they open (iPhone)
+  if (b.tagName === 'SELECT' || b.tagName === 'TEXTAREA' || (b.tagName === 'INPUT' && !/^(checkbox|radio)$/.test(b.type))) return;
   const a = b.dataset.act; if (a === 'check' || a === 'prep') return;
   const val = id => (document.getElementById(id) || {}).value || '';
   if (a === 'a-mode') { Sync.st.email = val('a-email').trim(); Sync.setMode(b.dataset.m); return; }
@@ -1210,8 +1213,9 @@ document.addEventListener('click', ev => {
   if (a === 'pver') { const e = S.plan[+b.dataset.i]; e.ver = e.ver === 'light' ? 'orig' : 'light'; Sync.op('plan_upsert', e); }
   if (a === 'plopen') { S.loPick = S.loPick === +b.dataset.day ? null : +b.dataset.day; }
   if (a === 'plocancel') { S.loPick = null; }
-  if (a === 'plo') { const e = { uid: Sync.newId(), kind: 'leftover', id: b.dataset.id, ver: b.dataset.v || 'orig', servings: 2, day: +b.dataset.day }; S.plan.push(e); Sync.op('plan_upsert', e); S.loPick = null; }
+  if (a === 'plo') { const e = { uid: Sync.newId(), kind: 'leftover', id: b.dataset.id, ver: b.dataset.v || 'orig', servings: 2, portion: 1, day: +b.dataset.day }; S.plan.push(e); Sync.op('plan_upsert', e); S.loPick = null; }
   if (a === 'pout') { const e = { uid: Sync.newId(), kind: 'out', id: '_out', ver: 'orig', servings: 2, day: +b.dataset.day, note: '' }; S.plan.push(e); Sync.op('plan_upsert', e); }
+  if (a === 'pport') { const e = S.plan[+b.dataset.i]; e.portion = +b.dataset.p; Sync.op('plan_upsert', e); }
   if (a === 'pdel') { const [e] = S.plan.splice(+b.dataset.i, 1); Sync.op('plan_delete', e.uid); }
   if (a === 'range') S.range = b.dataset.r;
   persist(); render();
@@ -1296,7 +1300,7 @@ ICON.today = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
 const mealName = m => t({ breakfast: 'mealB', lunch: 'mealL', dinner: 'mealD', snack: 'mealS' }[m]);
-const PORTIONS = [0.5, 1, 1.5, 2];
+const PORTIONS = [0.5, 0.8, 1, 1.5, 2];
 S.intake = load('intake', []);
 S.goals = load('goals', {});          // { [user]: { kcal, protein } }
 S.foods = load('foods', []);
@@ -1379,7 +1383,7 @@ function logPanel(d, date) {
   const f = S.logForm;
   const sameWeek = mondayOf(d) === mondayOf(new Date());
   const planned = sameWeek ? S.plan.filter(e => e.day === (d.getDay() + 6) % 7) : [];
-  const chips = planned.length ? `<div class="chips">${planned.map(e => { if (e.kind === 'out') return `<button class="chip" data-act="lother" aria-pressed="false">${esc(t('outT') + (e.note ? ' · ' + e.note : ''))}</button>`; const r = byId(e.id); return `<button class="chip" data-act="lpick" data-id="${r.id}" data-v="${e.ver}" aria-pressed="${!!(f && f.recipe_id === r.id)}">${esc(e.kind === 'leftover' ? t('loOf', title(r)) : title(r))}</button>`; }).join('')}
+  const chips = planned.length ? `<div class="chips">${planned.map(e => { if (e.kind === 'out') return `<button class="chip" data-act="lother" aria-pressed="false">${esc(t('outT') + (e.note ? ' · ' + e.note : ''))}</button>`; const r = byId(e.id); return `<button class="chip" data-act="lpick" data-id="${r.id}" data-v="${e.ver}" data-p="${e.kind === 'leftover' ? (+e.portion || 1) : 1}" aria-pressed="${!!(f && f.recipe_id === r.id)}">${esc(e.kind === 'leftover' ? t('loOf', title(r)) : title(r))}</button>`; }).join('')}
       <button class="chip" data-act="lother" aria-pressed="${!!(f && f.other)}">${t('other')}</button></div>`
     : `<p class="muted">${t('noPlanToday')}</p><div class="chips"><button class="chip" data-act="lother" aria-pressed="${!!(f && f.other)}">${t('other')}</button></div>`;
   const q = S.foodQ.trim().toLowerCase();
@@ -1470,7 +1474,7 @@ function fitnessClick(a, b) {
     case 'dnext': S.dayOff++; reset(); S.logMsg = ''; break;
     case 'dtoday': S.dayOff = 0; reset(); S.logMsg = ''; break;
     case 'whose': S.whose = b.dataset.u; reset(); break;
-    case 'lpick': S.logForm = { recipe_id: b.dataset.id, ver: b.dataset.v, portion: 1, meal: defaultMeal() }; S.logMsg = ''; break;
+    case 'lpick': S.logForm = { recipe_id: b.dataset.id, ver: b.dataset.v, portion: +b.dataset.p || 1, meal: defaultMeal() }; S.logMsg = ''; break;
     case 'lother': S.logForm = { other: true, meal: defaultMeal() }; S.logMsg = ''; break;
     case 'lsearch': S.logForm = { search: true, meal: (S.logForm && S.logForm.meal) || defaultMeal() }; S.logMsg = ''; setTimeout(() => { const el = document.getElementById('l-sq'); if (el) el.focus(); }, 0); break;
     case 'ldbgo': { const q = (S.search && S.search.q || '').trim(); if (q) dbSearch({ q }); return true; }
