@@ -1214,13 +1214,6 @@ function viewRecipe() {
     <div>${ing}</div>
     <div class="section-title"><span class="eyebrow">${t('s2')}</span><h2>${t('steps')}</h2></div>
     <ol class="steps">${vf(r, verKey, 'steps').map(s => `<li><span>${esc(s)}</span></li>`).join('')}</ol>
-    <div class="section-title" id="plan-add"><span class="eyebrow">${t('s3')}</span><h2>${t('addTitle')}</h2></div>
-    <section class="panel">
-      <button class="action" data-act="addsheet">＋ ${t('addFab')}</button>
-      ${S.addedDay != null ? `<span class="toast" role="status">${esc(t('added', dayName(S.addedDay)))}</span>` : ''}
-      <button class="ghost" data-act="rlog" style="align-self:flex-start">${t('logRecipe')} · ${t('portionN', 1)}</button>
-      ${S.logged === r.id ? `<span class="toast" role="status">${t('logged')}</span>` : ''}
-    </section>
     ${updatesSection(r)}
   </main>${S.addSheet ? addSheet(r, verKey) : ''}`;
 }
@@ -1376,7 +1369,7 @@ document.addEventListener('click', ev => {
   if (a === 'a-out') { Sync.signOut(); return; }
   if (a === 'a-pw') { const pw = val('a-newpw'); if (pw) Sync.changePassword(pw); return; }
   if (fitnessClick(a, b) || goalsClick(a, b)) return;
-  if (a === 'jump') { ev.preventDefault(); document.getElementById('plan-add').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); return; }
+  if (a === 'jump') { ev.preventDefault(); S.addSheet = true; render(); return; }
   const toTop = a === 'open' || a === 'back' || a === 'tab';
   if (a === 'open') { S.updMsg = false; const r = byId(b.dataset.id); S.tab = 'cook'; S.recipe = r.id; S.ver = pickVer(r); S.servings = 2; S.addedDay = null; S.logged = null; if (S.pickDay != null) S.addDay = S.pickDay; }
   if (a === 'back') S.recipe = null;
