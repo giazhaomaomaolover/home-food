@@ -1057,7 +1057,7 @@ const S = {
 };
 S.plan.forEach(e => { if (!e.uid) e.uid = Sync.newId(); });
 function persist() { save('plan', S.plan); save('checked', S.checked); save('saved', S.saved); }
-const pill = st => `<span class="pill ${st}">${STATUS_I[LANG][st]}</span>`;
+const pill = (st, type) => `<span class="pill ${st}">${st === 'na' && typeName(type) ? typeName(type) : STATUS_I[LANG][st]}</span>`;
 
 function cover(r, cls = '') {
   if (r.cover) return `<div class="cover ${cls}"><img src="${r.cover}" alt="${esc(t('alt', title(r)))}">${cls.includes('thumb') ? '' : `<span class="pending">${t('ai')}</span>`}</div>`;
@@ -1098,7 +1098,7 @@ function viewCook() {
     // with a nutrition filter on, the tag shows the version that meets it
     const shown = activeNut().length ? r.versions[pickVer(r)] : o;
     return `<button class="card" data-act="open" data-id="${r.id}" aria-label="${esc(title(r))}">
-      ${cover(r)}<span class="kcal-tag">${pill(shown.status)}</span>
+      ${cover(r)}<span class="kcal-tag">${pill(shown.status, r.type)}</span>
       <div class="card-body"><span class="eyebrow">${esc(rf(r, 'cuisine'))} · ${typeName(r.type)}</span>
         <span class="card-title">${esc(title(r))}</span><span class="en">${esc(subtitle(r))}</span>
         <span class="meta">${S.saved[r.id] ? `<span class="stars-mini">${typeof S.saved[r.id] === 'number' ? '★'.repeat(S.saved[r.id]) : ICON.markSmall}</span>` : ''}<b class="ck">${shown.n.kcal} kcal</b><span class="ct">${esc(rf(r, 'time')).replace(/^(About|约|大约)\s*/i, '')}</span></span></div>
@@ -1149,7 +1149,7 @@ function viewRecipe() {
         : `<div class="row"><span class="label">${t('version')}</span><span class="muted">${t('onlyOrig')}</span></div>`}
       <div class="row"><span class="label">${t('servings')}</span><div class="seg" role="group" aria-label="${t('servings')}">${[1, 2, 4].map(s => `<button data-act="serv" data-s="${s}" aria-pressed="${S.servings === s}">${t('nServ', s)}</button>`).join('')}</div></div>
       <div class="nut" aria-label="${t('nutAria')}"><div><b>${n.kcal}</b><span>${t('pp')}</span></div><div><b>${n.P}</b><span>${t('P')}</span></div><div><b>${n.C}</b><span>${t('C')}</span></div><div><b>${n.F}</b><span>${t('F')}</span></div><div><b>${n.Fib}</b><span>${t('Fib')}</span></div></div>
-      <div class="row">${pill(v.status)}<span class="muted" style="flex:1;min-width:200px">${esc(verKey === 'orig' ? (vf(r, 'orig', 'nnote') || '') : t('kept'))}</span></div>
+      <div class="row">${pill(v.status, r.type)}<span class="muted" style="flex:1;min-width:200px">${esc(verKey === 'orig' ? (vf(r, 'orig', 'nnote') || '') : t('kept'))}</span></div>
     </section>
     ${changes}
     <div class="section-title"><span class="eyebrow">${t('s1')}</span><h2>${t('ing')}</h2>
@@ -1184,7 +1184,7 @@ function planEntryHtml(e, idx, i) {
     return `<div class="entry kind-lo">${cover(r, 'thumb')}<div class="dl"><button class="dishlink" data-act="open" data-id="${r.id}"><span class="t">${esc(t('loOf', title(r)))}</span><span class="chev" aria-hidden="true">›</span></button><div class="s">${src ? esc(t('loFrom', dayLabel(src.day))) + ' · ' : ''}${t('portionX', +e.portion || 1)}</div></div>${delBtn(t('loOf', title(r)))}
     <div class="ctl"><div class="seg sm" role="group" aria-label="${t('loPortion')}">${[0.5, 0.8, 1, 1.5].map(p => `<button data-act="pport" data-i="${idx}" data-p="${p}" aria-pressed="${(+e.portion || 1) === p}">${p}</button>`).join('')}</div></div></div>`;
   }
-  return `<div class="entry">${cover(r, 'thumb')}<div class="dl"><button class="dishlink" data-act="open" data-id="${r.id}"><span class="t">${esc(title(r))}</span><span class="chev" aria-hidden="true">›</span></button><div class="s">${v.n.kcal} ${t('pp')} ${pill(v.status)}</div></div>${delBtn(title(r))}
+  return `<div class="entry">${cover(r, 'thumb')}<div class="dl"><button class="dishlink" data-act="open" data-id="${r.id}"><span class="t">${esc(title(r))}</span><span class="chev" aria-hidden="true">›</span></button><div class="s">${v.n.kcal} ${t('pp')} ${pill(v.status, r.type)}</div></div>${delBtn(title(r))}
     <div class="ctl"><div class="seg sm" role="group" aria-label="${t('servings')}">${[1, 2, 4].map(s => `<button data-act="pserv" data-i="${idx}" data-s="${s}" aria-pressed="${e.servings === s}">${t('nPpl', s)}</button>`).join('')}</div>
     ${r.versions.light ? `<div class="seg sm" role="group" aria-label="${esc(t('version'))}">${['orig', 'light'].map(k => `<button data-act="${(e.ver || 'orig') === k ? 'noop' : 'pver'}" data-i="${idx}" aria-pressed="${(e.ver || 'orig') === k}">${t(k)}</button>`).join('')}</div>` : ''}</div></div>`;
 }
