@@ -394,6 +394,11 @@ ul.log li:last-child { border-bottom: 0; }
 .dcwrap { position: relative; }
 .addfab { position: absolute; top: 12px; right: 12px; min-height: 40px; padding: 8px 14px; border-radius: 999px; border: 0; background: rgba(255,255,255,.94); color: #111; font: 600 14px/1 inherit; box-shadow: 0 2px 10px rgba(0,0,0,.15); cursor: pointer; }
 .addfab.done { background: #111; color: #fff; }
+.psug { display: flex; flex-direction: column; gap: 4px; } .psug:empty { display: none; }
+.psi { text-align: left; border: 1px solid var(--line, #ddd); background: #fff; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; font: inherit; color: inherit; cursor: pointer; min-width: 0; }
+.psi b { font-size: 15px; } .psi span { font-size: 12px; color: var(--muted, #6b6b6b); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.placesel { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line, #ddd); border-radius: 12px; background: #fff; }
+.placesel > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; } .placesel svg { flex: none; width: 18px; height: 18px; margin-top: 2px; }
 .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 60; }
 .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; background: var(--card, #fff); border-radius: 20px 20px 0 0; padding: 20px 18px calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; max-width: 640px; margin: 0 auto; box-shadow: 0 -6px 30px rgba(0,0,0,.18); }
 .sheet h2 { margin: 0; font-size: 20px; }
@@ -1015,7 +1020,7 @@ const T = {
     ready: n => `备好 ${n}`, assume: '假设', s2: '02 / At the stove · 开火', steps: '步骤', s3: '03 / Plan · 安排', addTitle: '加入本周', pickDay: '选哪天', addFab: '加入本周', addedFab: d => `已加入${d}`, pickDayQ: '加到哪一天？', nDish: n => `${n} 道`, planCancelS: '取消',
     addBtn: (d, v, s) => `加入${d} · ${v} · ${s} 人份`, added: d => `已加入${d}，采购单已更新。`,
     planEyebrow: 'This week · 本周', planH: '一周晚饭', planSub: '每道菜单独选份数和版本，采购单跟着变。', switchTo: v => `换成${v}`, del: '删除',
-    delAria: n => `从计划里删除${n}`, none: '没安排', weekend: ' · 周末', planFoot: '剩菜和外食不进采购单。外食那天可以在下面的「记一餐」里拍照或手动记一笔。', addLo: '+ 剩菜', updH: '更新', updSub: '做完觉得哪里要改？用量、步骤、换食材、口味心得都写在这里，我会按这些更新菜谱。', updPh: '比如：酱油少放一半；烤 15 分钟就够', updSend: '提交', updDone: '已更新', updOpen: '待更新', updSaved: '已提交，下次更新菜谱时会处理。', updDelA: '删除这条', addDish: '+ 加一道菜', pickFor: d => `正在给${d}选菜：点一道菜，再点「加到${d}」`, pickCancel: '取消', dinnerH: '晚饭计划', logFuture: '到了那天就能在这里记录吃了什么。', loggedH: '已记录', addOut: '+ 外食', loOf: n => `剩菜 · ${n}`, loFrom: d => `${d}做的`, outT: '外食', outPh: '餐厅名，或粘贴 Google Maps 分享链接', mapsBtn: 'Google Maps', mapsFind: '在 Google Maps 找', placeOk: '确认这家', placeEdit: '改', placeHint: '先在 Google Maps 找到餐厅（可以复制分享链接粘贴回来），确认后点名字就直接打开这家店。', mapsHint: '在 Google Maps 里点「分享 → 复制链接」，粘贴到上面就行。', loPickH: '吃哪道的剩菜？', loPortion: '吃多少', portionX: p => `${p} 份`, loNone: '这周前几天还没安排菜。', cancelPick: '取消',
+    delAria: n => `从计划里删除${n}`, none: '没安排', weekend: ' · 周末', planFoot: '剩菜和外食不进采购单。外食那天可以在下面的「记一餐」里拍照或手动记一笔。', addLo: '+ 剩菜', updH: '更新', updSub: '做完觉得哪里要改？用量、步骤、换食材、口味心得都写在这里，我会按这些更新菜谱。', updPh: '比如：酱油少放一半；烤 15 分钟就够', updSend: '提交', updDone: '已更新', updOpen: '待更新', updSaved: '已提交，下次更新菜谱时会处理。', updDelA: '删除这条', addDish: '+ 加一道菜', pickFor: d => `正在给${d}选菜：点一道菜，再点「加到${d}」`, pickCancel: '取消', dinnerH: '晚饭计划', logFuture: '到了那天就能在这里记录吃了什么。', loggedH: '已记录', addOut: '+ 外食', loOf: n => `剩菜 · ${n}`, loFrom: d => `${d}做的`, outT: '外食', outPh: '输入餐厅名搜索，或粘贴 Google Maps 链接', mapsBtn: 'Google Maps', mapsFind: '在 Google Maps 找', placeOk: '确认这家', placeAgain: '重新搜', placeEdit: '改', placeHint: '输入名字会出现搜索结果，选一家再确认；确认后点名字就直接打开这家店。找不到的话，也可以从 Google Maps 复制分享链接粘贴进来。', mapsHint: '在 Google Maps 里点「分享 → 复制链接」，粘贴到上面就行。', loPickH: '吃哪道的剩菜？', loPortion: '吃多少', portionX: p => `${p} 份`, loNone: '这周前几天还没安排菜。', cancelPick: '取消',
     shopEyebrow: 'Shopping · 采购', shopH: '采购单', shopStats: (d, n, x) => `${d} 道菜 · ${n} 项 · 已买 ${x}`, range: '采购范围', week: '全周', weekdays: '工作日', weekendR: '周末',
     pantry: '常备品：买之前先看看家里有没有。', selectAll: '全部打勾', unselectAll: '全部取消', shopEmpty: '这个范围里还没安排菜。去「本周」加几道。',
     shopFoot: '同一种食材、同一种单位会自动加在一起；勺和杯会换算合并，但不会把体积换成重量。米饭按生米算。', sep: '、',
@@ -1042,7 +1047,7 @@ const T = {
     ready: n => `${n} ready`, assume: 'Assumed', s2: '02 / At the stove', steps: 'Method', s3: '03 / Plan', addTitle: 'Add to this week', pickDay: 'Pick a day', addFab: 'Add to a day', addedFab: d => `Added to ${d}`, pickDayQ: 'Which day?', nDish: n => `${n} planned`, planCancelS: 'Cancel',
     addBtn: (d, v, s) => `Add to ${d} · ${v} · ${ser(s)}`, added: d => `Added to ${DAYS_LONG_EN[DAYS_I.en.indexOf(d)] || d}; shopping list updated.`,
     planEyebrow: 'This week', planH: 'Dinners this week', planSub: 'Pick servings and version for each dish; the shopping list follows.', switchTo: v => `Switch to ${v.toLowerCase()}`, del: 'Remove',
-    delAria: n => `Remove ${n} from the plan`, none: 'Nothing planned', weekend: ' · Weekend', planFoot: 'Leftovers and eating out don\u2019t add to the shopping list. On an eating-out day, log it below with a photo or by hand.', addLo: '+ Leftovers', updH: 'Update', updSub: 'Anything to change after cooking it? Amounts, steps, swaps, how it tasted: write it here and I’ll update the recipe.', updPh: 'e.g. half the soy sauce; 15 min in the oven is enough', updSend: 'Submit', updDone: 'Updated', updOpen: 'Waiting', updSaved: 'Submitted; it will be handled at the next recipe update.', updDelA: 'Delete this note', addDish: '+ Add a dish', pickFor: d => `Choosing a dish for ${d}: tap one, then “Add to ${d}”.`, pickCancel: 'Cancel', dinnerH: 'Dinner plan', logFuture: 'You can log what you ate here on the day.', loggedH: 'Logged', addOut: '+ Eating out', loOf: n => `Leftovers · ${n}`, loFrom: d => `Cooked ${d}`, outT: 'Eating out', outPh: 'Restaurant, or paste a Google Maps share link', mapsBtn: 'Google Maps', mapsFind: 'Find on Google Maps', placeOk: 'Confirm this place', placeEdit: 'Change', placeHint: 'Find the restaurant in Google Maps (you can paste its share link back here); once confirmed, tapping the name opens that place directly.', mapsHint: 'In Google Maps tap Share → Copy link and paste it above.', loPickH: 'Leftovers of which dish?', loPortion: 'How much', portionX: p => `${p} ${p === 1 ? 'portion' : 'portions'}`, loNone: 'Nothing planned earlier this week yet.', cancelPick: 'Cancel',
+    delAria: n => `Remove ${n} from the plan`, none: 'Nothing planned', weekend: ' · Weekend', planFoot: 'Leftovers and eating out don\u2019t add to the shopping list. On an eating-out day, log it below with a photo or by hand.', addLo: '+ Leftovers', updH: 'Update', updSub: 'Anything to change after cooking it? Amounts, steps, swaps, how it tasted: write it here and I’ll update the recipe.', updPh: 'e.g. half the soy sauce; 15 min in the oven is enough', updSend: 'Submit', updDone: 'Updated', updOpen: 'Waiting', updSaved: 'Submitted; it will be handled at the next recipe update.', updDelA: 'Delete this note', addDish: '+ Add a dish', pickFor: d => `Choosing a dish for ${d}: tap one, then “Add to ${d}”.`, pickCancel: 'Cancel', dinnerH: 'Dinner plan', logFuture: 'You can log what you ate here on the day.', loggedH: 'Logged', addOut: '+ Eating out', loOf: n => `Leftovers · ${n}`, loFrom: d => `Cooked ${d}`, outT: 'Eating out', outPh: 'Type a restaurant name, or paste a Maps link', mapsBtn: 'Google Maps', mapsFind: 'Find on Google Maps', placeOk: 'Confirm this place', placeAgain: 'Search again', placeEdit: 'Change', placeHint: 'Start typing and pick from the results, then confirm; tapping the name then opens that place. If it isn\u2019t listed, paste a Google Maps share link instead.', mapsHint: 'In Google Maps tap Share → Copy link and paste it above.', loPickH: 'Leftovers of which dish?', loPortion: 'How much', portionX: p => `${p} ${p === 1 ? 'portion' : 'portions'}`, loNone: 'Nothing planned earlier this week yet.', cancelPick: 'Cancel',
     shopEyebrow: 'Shopping', shopH: 'Shopping list', shopStats: (d, n, x) => `${d} ${d === 1 ? 'dish' : 'dishes'} · ${n} items · ${x} bought`, range: 'Shopping range', week: 'Whole week', weekdays: 'Weekdays', weekendR: 'Weekend',
     pantry: 'Pantry staples: check what you already have before buying.', selectAll: 'Check all', unselectAll: 'Uncheck all', shopEmpty: 'Nothing planned in this range yet. Add a few dishes in This week.',
     shopFoot: 'The same ingredient in the same unit adds up automatically; spoons and cups are combined, but volume is never converted to weight. Rice is counted uncooked.', sep: ', ',
@@ -1386,6 +1391,14 @@ document.addEventListener('click', ev => {
   if (a === 'ppick') { S.pickDay = +b.dataset.day; S.addDay = S.pickDay; S.addedDay = null; S.tab = 'cook'; S.recipe = null; window.scrollTo(0, 0); }
   if (a === 'pickcancel') { S.pickDay = null; S.tab = 'plan'; S.recipe = null; }
   if (a === 'pdel') { const [e] = S.plan.splice(+b.dataset.i, 1); Sync.op('plan_delete', e.uid); }
+  if (a === 'plpick') { S.plSel = { ...(S.plSel || {}), [b.dataset.i]: { id: b.dataset.id, name: b.dataset.name, addr: b.dataset.addr } }; }
+  if (a === 'plsx') { if (S.plSel) delete S.plSel[b.dataset.i]; }
+  if (a === 'pok' && S.plSel && S.plSel[b.dataset.i]) {
+    const e = S.plan[+b.dataset.i], p = S.plSel[b.dataset.i]; delete S.plSel[b.dataset.i]; PLS.session = '';
+    if (e) { const full = p.addr ? `${p.name}, ${p.addr}` : p.name;
+      e.note = (`✓${full}\nhttps://www.google.com/maps/search/?api=1&query=${encodeURIComponent(full)}&query_place_id=${encodeURIComponent(p.id)}`).slice(0, 400); Sync.op('plan_upsert', e); }
+    persist(); render(); return;
+  }
   if (a === 'pok' || a === 'punok') {
     const e = S.plan[+b.dataset.i]; if (!e) return;
     const inp = document.getElementById('pnote-' + b.dataset.i), raw = (inp ? inp.value : e.note || '').trim();
@@ -1406,6 +1419,28 @@ document.addEventListener('change', ev => {
   if (c.dataset.act === 'check') { const k = c.dataset.k; if (c.checked) { S.checked[k] = true; Sync.op('check_add', k); } else { delete S.checked[k]; Sync.op('check_del', k); } persist(); }
   else { const r = byId(S.recipe), pk = r.id + ':' + (r.versions.light ? S.ver : 'orig'); S.prep[pk] = S.prep[pk] || {}; S.prep[pk][c.dataset.k] = c.checked; }
   const y = window.scrollY; render(); window.scrollTo(0, y);
+});
+// typing a restaurant name: Google Places suggestions under the box (server-side key; quiet if not set up)
+const PLS = { timer: 0, session: '', loc: null, asked: false, off: false };
+function plsLoc() {
+  if (PLS.asked || !navigator.geolocation) return; PLS.asked = true;
+  navigator.geolocation.getCurrentPosition(p => { PLS.loc = { lat: p.coords.latitude, lng: p.coords.longitude }; }, () => {}, { maximumAge: 3600e3, timeout: 8000 });
+}
+document.addEventListener('focusin', ev => { if (ev.target.matches && ev.target.matches('[data-act="pnote"]') && Sync.enabled && !PLS.off) plsLoc(); });
+document.addEventListener('input', ev => {
+  const pn = ev.target.closest && ev.target.closest('[data-act="pnote"]');
+  if (!pn || !Sync.enabled || PLS.off) return;
+  const idx = pn.dataset.i, q = pn.value.trim(), box = document.getElementById('psug-' + idx);
+  clearTimeout(PLS.timer);
+  if (q.length < 2 || /^https?:/.test(q)) { if (box) box.innerHTML = ''; return; }
+  PLS.timer = setTimeout(async () => {
+    if (!PLS.session) PLS.session = Sync.newId();
+    const r = await Sync.invoke('place-search', { q, session: PLS.session, lang: LANG, ...(PLS.loc || {}) });
+    const d = (r && r.data) || r || {};
+    if (d.error === 'not_configured') { PLS.off = true; return; }
+    const el = document.getElementById('psug-' + idx); if (!el || (document.getElementById('pnote-' + idx) || {}).value.trim() !== q) return;
+    el.innerHTML = (d.items || []).map(p => `<button type="button" class="psi" data-act="plpick" data-i="${idx}" data-id="${esc(p.id)}" data-name="${esc(p.name)}" data-addr="${esc(p.addr)}"><b>${esc(p.name)}</b><span>${esc(p.addr)}</span></button>`).join('');
+  }, 300);
 });
 document.addEventListener('input', ev => {
   if (ev.target.id !== 'q') return;
@@ -1464,7 +1499,10 @@ function outBody(e, idx) {
   const p = parsePlace(e.note);
   if (p.ok && p.name) return `<a class="placecard" href="${esc(placeUrl(p))}" target="_blank" rel="noopener">${ICON.pin || ''}<span>${esc(p.name)}</span><span class="chev" aria-hidden="true">›</span></a>
     <button class="linkish small" data-act="punok" data-i="${idx}">${t('placeEdit')}</button>`;
-  return `${outPlace(e)}<label class="field slim"><span class="sr">${t('outPh')}</span><input type="text" id="pnote-${idx}" data-act="pnote" data-i="${idx}" maxlength="400" placeholder="${esc(t('outPh'))}" value="${esc(e.note || '')}"></label>
+  const sel = (S.plSel || {})[idx];
+  if (sel) return `<div class="placesel">${ICON.pin || ''}<div><b>${esc(sel.name)}</b>${sel.addr ? `<span class="muted small">${esc(sel.addr)}</span>` : ''}</div></div>
+    <div class="chips"><button class="chip sm ok" data-act="pok" data-i="${idx}">✓ ${t('placeOk')}</button><button class="chip sm" data-act="plsx" data-i="${idx}">${t('placeAgain')}</button></div>`;
+  return `${outPlace(e)}<label class="field slim"><span class="sr">${t('outPh')}</span><input type="text" id="pnote-${idx}" data-act="pnote" data-i="${idx}" maxlength="400" placeholder="${esc(t('outPh'))}" value="${esc(e.note || '')}" autocomplete="off"></label><div class="psug" id="psug-${idx}" role="listbox"></div>
     <div class="chips"><a class="chip sm maps" href="${esc(mapsHref(e.note))}" target="_blank" rel="noopener">${ICON.pin || ''}${t('mapsFind')}</a>
     <button class="chip sm ok" data-act="pok" data-i="${idx}">✓ ${t('placeOk')}</button></div><p class="muted small">${t('placeHint')}</p>`;
 }
