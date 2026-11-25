@@ -1,5 +1,5 @@
 // Offline support: the app page is network-first (always fresh when online), photos are cache-first.
-const CACHE = 'hf-37465a2eea';
+const CACHE = 'hf-17a3d821b2';
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', 'index.html']))); });
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', e => {

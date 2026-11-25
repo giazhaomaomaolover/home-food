@@ -767,7 +767,7 @@ const Sync = (() => {
       sb.from('shopping_checks').select('item_key').eq('household_id', h).eq('week_start', wk),
       sb.from('favorites').select('user_id, recipe_id, rating'),
       sb.from('members').select('user_id, display_name, kcal_goal, protein_goal').eq('household_id', h),
-      sb.from('health_daily').select('day, source, steps, active_kcal, resting_hr, weight_kg, exercise_min, sleep_min, sleep_score, readiness, hrv_ms').eq('user_id', st.user.id).gte('day', ymd(since)),
+      sb.from('health_daily').select('day, source, steps, active_kcal, resting_hr, weight_kg, exercise_min, sleep_min, sleep_score, readiness, hrv_ms, body_fat_pct').eq('user_id', st.user.id).gte('day', ymd(since)),
       sb.from('saved_foods').select('id, name, kcal, protein_g, carbs_g, fat_g, uses, last_used').eq('household_id', h),
       sb.from('intake_logs').select('id, user_id, eaten_on, meal, recipe_id, ver, portion, label, kcal, protein_g, carbs_g, fat_g').gte('eaten_on', ymd(since)).order('created_at'),
     ]);
@@ -1241,7 +1241,7 @@ document.addEventListener('input', ev => {
 // Entries: { uid, user, date 'YYYY-MM-DD', meal, recipe_id, ver, portion, label, kcal, P, C, F }
 // user is the Supabase user id in the synced app, 'me' in the preview.
 Object.assign(T.zh, {
-  tToday: '今天', todayEyebrow: 'Today · 今天', kLeft: '还能吃', kOver: '超出目标', kEaten: '已吃热量', eatGoal: (e, g) => `已吃 ${e} · 目标 ${g}`, macLeft: n => `${n}还差`, macEaten: n => `${n}已吃`, logJump: '记一餐', goalSet: '在「我」里设每天的目标', eaten: '已吃', left: n => `还差 ${n}`, over: n => `超了 ${n}`,
+  tToday: '今天', bodyFat: '体脂率', todayEyebrow: 'Today · 今天', kLeft: '还能吃', kOver: '超出目标', kEaten: '已吃热量', eatGoal: (e, g) => `已吃 ${e} · 目标 ${g}`, macLeft: n => `${n}还差`, macEaten: n => `${n}已吃`, logJump: '记一餐', goalSet: '在「我」里设每天的目标', eaten: '已吃', left: n => `还差 ${n}`, over: n => `超了 ${n}`,
   protein: '蛋白质', carbs: '碳水', fat: '脂肪', mealB: '早餐', mealL: '午餐', mealD: '晚餐', mealS: '加餐', nothing: '还没记录',
   logTitle: '记一餐', fromPlan: '今天菜单上的', noPlanToday: '今天菜单上没有菜。可以在食谱里打开一道菜记录，或者手填。',
   other: '手填其他食物', foodName: '吃了什么', kcalL: '热量 kcal', proteinL: '蛋白质 g', carbsL: '碳水 g', fatL: '脂肪 g', portion: '份量', meal: '哪一餐',
@@ -1271,7 +1271,7 @@ Object.assign(T.zh, {
 Object.assign(T.en, {
   tToday: 'Today', todayEyebrow: 'Today', goalSet: 'Set daily goals in Me', eaten: 'Eaten', left: n => `${n} to go`, over: n => `${n} over`,
   protein: 'Protein', carbs: 'Carbs', fat: 'Fat', mealB: 'Breakfast', mealL: 'Lunch', mealD: 'Dinner', mealS: 'Snack', nothing: 'Nothing logged yet',
-  logTitle: 'Log a meal', kLeft: 'Calories left', kOver: 'Over goal', kEaten: 'Calories eaten', eatGoal: (e, g) => `${e} eaten · goal ${g}`, macLeft: n => `${n} left`, macEaten: n => `${n} eaten`, logJump: 'Log a meal', fromPlan: 'On today’s plan', noPlanToday: 'Nothing planned today. Open a recipe to log it, or enter something by hand.',
+  logTitle: 'Log a meal', bodyFat: 'Body fat', kLeft: 'Calories left', kOver: 'Over goal', kEaten: 'Calories eaten', eatGoal: (e, g) => `${e} eaten · goal ${g}`, macLeft: n => `${n} left`, macEaten: n => `${n} eaten`, logJump: 'Log a meal', fromPlan: 'On today’s plan', noPlanToday: 'Nothing planned today. Open a recipe to log it, or enter something by hand.',
   other: 'Something else', foodName: 'What you ate', kcalL: 'Calories (kcal)', proteinL: 'Protein (g)', carbsL: 'Carbs (g)', fatL: 'Fat (g)', portion: 'Portion', meal: 'Meal',
   log: 'Log it', logged: 'Logged for today.', remove: 'Remove', goalsH: 'Daily goals', kcalGoal: 'Calories (kcal)', proteinGoal: 'Protein (g)', saveGoals: 'Save goals',
   goalsSaved: 'Goals saved.', goalsHint: 'Only used to show progress. Your partner can see your log and goals too.', logRecipe: 'Log to today’s food', portionN: p => `${p} portion${p === 1 ? '' : 's'}`,
@@ -1572,6 +1572,7 @@ function healthCard(date) {
   add(t('exercise'), a.exercise_min != null ? t('minutes', a.exercise_min) : null);
   add(t('restingHr'), a.resting_hr != null ? `${a.resting_hr} bpm` : null);
   add(t('weight'), a.weight_kg != null ? `${Math.round(a.weight_kg / 0.45359237)} lb <small>${a.weight_kg} kg</small>` : null);
+  add(t('bodyFat'), a.body_fat_pct != null ? `${a.body_fat_pct}%` : null);
   add(t('sleep'), a.sleep_min != null ? t('hrsMin', Math.floor(a.sleep_min / 60), a.sleep_min % 60) : null);
   add(t('readiness'), o.readiness); add(t('sleepScore'), o.sleep_score); add(t('hrv'), o.hrv_ms != null ? `${o.hrv_ms} ms` : null);
   return `<section class="panel"><span class="label">${t('healthH')}</span>${cells.length ? `<div class="hgrid">${cells.join('')}</div>`
