@@ -32,7 +32,7 @@ main { flex: 1; padding: 0 18px 28px; display: flex; flex-direction: column; gap
 .eyebrow { font-size: 11px; line-height: 1.4; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; color: var(--spice); }
 .muted { color: var(--muted); font-size: 14px; }
 .masthead { display: flex; align-items: center; gap: 12px; padding: 18px 18px 14px; border-bottom: 1px solid var(--line); }
-.splash { position: fixed; inset: 0; z-index: 200; background: #FFFFFF; display: flex; align-items: center; justify-content: center; transition: opacity .35s ease; }
+.splash { position: fixed; inset: 0; z-index: 200; background: #FFFFFF; display: flex; align-items: center; justify-content: center; transition: opacity .5s ease; }
 .splash.out { opacity: 0; pointer-events: none; }
 html.splashing, html.splashing body { background: #FFFFFF; }
 .splash video { width: 150px; height: 150px; }
@@ -424,6 +424,7 @@ ul.log li:last-child { border-bottom: 0; }
 .wol { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .wol li { display: flex; align-items: center; gap: 10px; } .wol li span { flex: 1; min-width: 0; } .wol li b { font-variant-numeric: tabular-nums; }
 .woform { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.pq { display: inline-flex; align-items: center; gap: 4px; flex: none; } .pq input { width: 58px; min-height: 36px; padding: 4px 6px; border: 1px solid var(--line, #ddd); border-radius: 10px; font: inherit; font-size: 15px; text-align: center; background: #fff; } .pq span { font-size: 13px; color: var(--muted, #6b6b6b); }
 .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 60; }
 .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; background: var(--card, #fff); border-radius: 20px 20px 0 0; padding: 20px 18px calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; max-width: 640px; margin: 0 auto; box-shadow: 0 -6px 30px rgba(0,0,0,.18); }
 .sheet h2 { margin: 0; font-size: 20px; }
@@ -1052,7 +1053,7 @@ const T = {
     ready: n => `备好 ${n}`, assume: '假设', s2: '02 / At the stove · 开火', steps: '步骤', s3: '03 / Plan · 安排', addTitle: '加入本周', pickDay: '选哪天', addFab: '加入本周', addedFab: d => `已加入${d}`, pickDayQ: '加到哪一天？', nDish: n => `${n} 道`, planCancelS: '取消',
     addBtn: (d, v, s) => `加入${d} · ${v} · ${s} 人份`, added: d => `已加入${d}，采购单已更新。`,
     planEyebrow: 'This week · 本周', planH: '一周晚饭', planSub: '每道菜单独选份数和版本，采购单跟着变。', switchTo: v => `换成${v}`, del: '删除',
-    delAria: n => `从计划里删除${n}`, none: '没安排', weekend: ' · 周末', planFoot: '剩菜和外食不进采购单。外食那天可以在下面的「记一餐」里拍照或手动记一笔。', addLo: '+ 剩菜', updH: '更新', updSub: '做完觉得哪里要改？用量、步骤、换食材、口味心得都写在这里，我会按这些更新菜谱。', updPh: '比如：酱油少放一半；烤 15 分钟就够', updSend: '提交', updDone: '已更新', updOpen: '待更新', updSaved: '已提交，下次更新菜谱时会处理。', updDelA: '删除这条', addDish: '+ 加一道菜', pickFor: d => `正在给${d}选菜：点一道菜，再点「加到${d}」`, pickCancel: '取消', dinnerH: '晚饭计划', logFuture: '到了那天就能在这里记录吃了什么。', editLog: '编辑', doneLog: '完成', nothingYet: '这天还没记。', plTag: '计划', plAte: '吃了', loggedH: '已记录', addOut: '+ 外食', loOf: n => `剩菜 · ${n}`, loFrom: d => `${d}做的`, outT: '外食', outPh: '输入餐厅名搜索，或粘贴 Google Maps 链接', mapsBtn: 'Google Maps', mapsFind: '在 Google Maps 找', placeOk: '确认这家', placeOkTyped: '确认', placeAgain: '重新搜', placeEdit: '改', placeHint: '输入名字，点下面的结果就选好了；之后点名字会直接在 Google Maps 打开这家店。搜不到的话，输入名字或粘贴 Google Maps 分享链接，再点「确认」。', mapsHint: '在 Google Maps 里点「分享 → 复制链接」，粘贴到上面就行。', loPickH: '吃哪道的剩菜？', loPortion: '吃多少', portionX: p => `${p} 份`, loNone: '这周前几天还没安排菜。', cancelPick: '取消',
+    delAria: n => `从计划里删除${n}`, none: '没安排', weekend: ' · 周末', planFoot: '剩菜和外食不进采购单。外食那天可以在下面的「记一餐」里拍照或手动记一笔。', addLo: '+ 剩菜', updH: '更新', updSub: '做完觉得哪里要改？用量、步骤、换食材、口味心得都写在这里，我会按这些更新菜谱。', updPh: '比如：酱油少放一半；烤 15 分钟就够', updSend: '提交', updDone: '已更新', updOpen: '待更新', updSaved: '已提交，下次更新菜谱时会处理。', updDelA: '删除这条', addDish: '+ 加一道菜', pickFor: d => `正在给${d}选菜：点一道菜，再点「加到${d}」`, pickCancel: '取消', dinnerH: '晚饭计划', logFuture: '到了那天就能在这里记录吃了什么。', editLog: '编辑', doneLog: '完成', nothingYet: '这天还没记。', portionsL: '份数', portionsS: '份', plTag: '计划', plAte: '吃了', loggedH: '已记录', addOut: '+ 外食', loOf: n => `剩菜 · ${n}`, loFrom: d => `${d}做的`, outT: '外食', outPh: '输入餐厅名搜索，或粘贴 Google Maps 链接', mapsBtn: 'Google Maps', mapsFind: '在 Google Maps 找', placeOk: '确认这家', placeOkTyped: '确认', placeAgain: '重新搜', placeEdit: '改', placeHint: '输入名字，点下面的结果就选好了；之后点名字会直接在 Google Maps 打开这家店。搜不到的话，输入名字或粘贴 Google Maps 分享链接，再点「确认」。', mapsHint: '在 Google Maps 里点「分享 → 复制链接」，粘贴到上面就行。', loPickH: '吃哪道的剩菜？', loPortion: '吃多少', portionX: p => `${p} 份`, loNone: '这周前几天还没安排菜。', cancelPick: '取消',
     shopEyebrow: 'Shopping · 采购', shopH: '采购单', shopStats: (d, n, x) => `${d} 道菜 · ${n} 项 · 已买 ${x}`, range: '采购范围', week: '全周', weekdays: '工作日', weekendR: '周末',
     pantry: '常备品：买之前先看看家里有没有。', selectAll: '全部打勾', unselectAll: '全部取消', shopEmpty: '这个范围里还没安排菜。去「本周」加几道。',
     shopFoot: '同一种食材、同一种单位会自动加在一起；勺和杯会换算合并，但不会把体积换成重量。米饭按生米算。', sep: '、',
@@ -1079,7 +1080,7 @@ const T = {
     ready: n => `${n} ready`, assume: 'Assumed', s2: '02 / At the stove', steps: 'Method', s3: '03 / Plan', addTitle: 'Add to this week', pickDay: 'Pick a day', addFab: 'Add to a day', addedFab: d => `Added to ${d}`, pickDayQ: 'Which day?', nDish: n => `${n} planned`, planCancelS: 'Cancel',
     addBtn: (d, v, s) => `Add to ${d} · ${v} · ${ser(s)}`, added: d => `Added to ${DAYS_LONG_EN[DAYS_I.en.indexOf(d)] || d}; shopping list updated.`,
     planEyebrow: 'This week', planH: 'Dinners this week', planSub: 'Pick servings and version for each dish; the shopping list follows.', switchTo: v => `Switch to ${v.toLowerCase()}`, del: 'Remove',
-    delAria: n => `Remove ${n} from the plan`, none: 'Nothing planned', weekend: ' · Weekend', planFoot: 'Leftovers and eating out don\u2019t add to the shopping list. On an eating-out day, log it below with a photo or by hand.', addLo: '+ Leftovers', updH: 'Update', updSub: 'Anything to change after cooking it? Amounts, steps, swaps, how it tasted: write it here and I’ll update the recipe.', updPh: 'e.g. half the soy sauce; 15 min in the oven is enough', updSend: 'Submit', updDone: 'Updated', updOpen: 'Waiting', updSaved: 'Submitted; it will be handled at the next recipe update.', updDelA: 'Delete this note', addDish: '+ Add a dish', pickFor: d => `Choosing a dish for ${d}: tap one, then “Add to ${d}”.`, pickCancel: 'Cancel', dinnerH: 'Dinner plan', logFuture: 'You can log what you ate here on the day.', editLog: 'Edit', doneLog: 'Done', nothingYet: 'Nothing logged for this day yet.', plTag: 'planned', plAte: 'Ate it', loggedH: 'Logged', addOut: '+ Eating out', loOf: n => `Leftovers · ${n}`, loFrom: d => `Cooked ${d}`, outT: 'Eating out', outPh: 'Type a restaurant name, or paste a Maps link', mapsBtn: 'Google Maps', mapsFind: 'Find on Google Maps', placeOk: 'Confirm this place', placeOkTyped: 'Confirm', placeAgain: 'Search again', placeEdit: 'Change', placeHint: 'Type a name and tap a result to choose it; tapping the name later opens that place in Google Maps. If it isn\u2019t listed, type the name or paste a Google Maps share link and tap Confirm.', mapsHint: 'In Google Maps tap Share → Copy link and paste it above.', loPickH: 'Leftovers of which dish?', loPortion: 'How much', portionX: p => `${p} ${p === 1 ? 'portion' : 'portions'}`, loNone: 'Nothing planned earlier this week yet.', cancelPick: 'Cancel',
+    delAria: n => `Remove ${n} from the plan`, none: 'Nothing planned', weekend: ' · Weekend', planFoot: 'Leftovers and eating out don\u2019t add to the shopping list. On an eating-out day, log it below with a photo or by hand.', addLo: '+ Leftovers', updH: 'Update', updSub: 'Anything to change after cooking it? Amounts, steps, swaps, how it tasted: write it here and I’ll update the recipe.', updPh: 'e.g. half the soy sauce; 15 min in the oven is enough', updSend: 'Submit', updDone: 'Updated', updOpen: 'Waiting', updSaved: 'Submitted; it will be handled at the next recipe update.', updDelA: 'Delete this note', addDish: '+ Add a dish', pickFor: d => `Choosing a dish for ${d}: tap one, then “Add to ${d}”.`, pickCancel: 'Cancel', dinnerH: 'Dinner plan', logFuture: 'You can log what you ate here on the day.', editLog: 'Edit', doneLog: 'Done', nothingYet: 'Nothing logged for this day yet.', portionsL: 'Portions', portionsS: '×', plTag: 'planned', plAte: 'Ate it', loggedH: 'Logged', addOut: '+ Eating out', loOf: n => `Leftovers · ${n}`, loFrom: d => `Cooked ${d}`, outT: 'Eating out', outPh: 'Type a restaurant name, or paste a Maps link', mapsBtn: 'Google Maps', mapsFind: 'Find on Google Maps', placeOk: 'Confirm this place', placeOkTyped: 'Confirm', placeAgain: 'Search again', placeEdit: 'Change', placeHint: 'Type a name and tap a result to choose it; tapping the name later opens that place in Google Maps. If it isn\u2019t listed, type the name or paste a Google Maps share link and tap Confirm.', mapsHint: 'In Google Maps tap Share → Copy link and paste it above.', loPickH: 'Leftovers of which dish?', loPortion: 'How much', portionX: p => `${p} ${p === 1 ? 'portion' : 'portions'}`, loNone: 'Nothing planned earlier this week yet.', cancelPick: 'Cancel',
     shopEyebrow: 'Shopping', shopH: 'Shopping list', shopStats: (d, n, x) => `${d} ${d === 1 ? 'dish' : 'dishes'} · ${n} items · ${x} bought`, range: 'Shopping range', week: 'Whole week', weekdays: 'Weekdays', weekendR: 'Weekend',
     pantry: 'Pantry staples: check what you already have before buying.', selectAll: 'Check all', unselectAll: 'Uncheck all', shopEmpty: 'Nothing planned in this range yet. Add a few dishes in This week.',
     shopFoot: 'The same ingredient in the same unit adds up automatically; spoons and cups are combined, but volume is never converted to weight. Rice is counted uncooked.', sep: ', ',
@@ -1278,7 +1279,7 @@ function viewPlan() {
   const logPart = i > todayIdx ? null : !S.logEdit ? viewPart
     : `<div class="row between"><span class="label">${t('loggedH')}</span><button class="ghost sm" data-act="logdone">${t('doneLog')}</button></div>` + `<section class="meals">${MEALS.map(m => { const rows = logged.filter(e => e.meal === m), kc = rows.reduce((a, e) => a + (e.kcal || 0), 0);
         return `<div class="mealbox"><div class="mhead"><h3 class="group">${mealName(m)}</h3><span class="muted small">${rows.length ? kc + ' kcal' : t('mealNone')}</span><button class="chip sm" data-act="laddmeal" data-m="${m}">${t('mealAdd')}</button></div>
-        ${rows.length ? `<ul class="ing log">${rows.map(e => `<li><span class="nm">${esc(entryTitle(e))}${e.portion && e.portion !== 1 ? ` <span class="muted">× ${e.portion}</span>` : ''}</span><span class="q">${e.kcal} kcal<small>${t('macroShort', e.P, e.C, e.F)}</small></span><button class="ghost" data-act="ldel" data-u="${e.uid}" aria-label="${t('remove')} ${esc(entryTitle(e))}">${t('remove')}</button></li>`).join('')}</ul>` : ''}</div>`; }).join('')}</section>${logPanel(d, date)}`;
+        ${rows.length ? `<ul class="ing log">${rows.map(e => `<li><span class="nm">${esc(entryTitle(e))}</span><label class="pq"><input type="number" inputmode="decimal" step="0.1" min="0.1" max="20" value="${+e.portion || 1}" data-u="${e.uid}" aria-label="${t('portionsL')} ${esc(entryTitle(e))}"><span>${t('portionsS')}</span></label><span class="q">${e.kcal} kcal<small>${t('macroShort', e.P, e.C, e.F)}</small></span><button class="ghost" data-act="ldel" data-u="${e.uid}" aria-label="${t('remove')} ${esc(entryTitle(e))}">${t('remove')}</button></li>`).join('')}</ul>` : ''}</div>`; }).join('')}</section>${logPanel(d, date)}`;
   const logPart2 = logPart == null ? `<p class="muted">${t('logFuture')}</p>` : logPart;
   return `<main><div class="page-head"><div class="bar"><h1>${t('tPlan')}</h1>${langBtn()}</div>${syncLine()}</div>
     ${strip}<div class="dayview" id="dayview"><div class="daytitle"><h2>${esc(dayLabel(i))}</h2><span class="muted">${esc(t('dayLabel', d))}</span></div>
@@ -1460,6 +1461,16 @@ function placeConfirm(b) {
   Sync.op('plan_upsert', e); persist(); render();
 }
 document.addEventListener('pointerdown', ev => { const b = ev.target.closest && ev.target.closest('.psi[data-act="plpick"]'); if (!b) return; ev.preventDefault(); PLS.swallow = Date.now() + 700; placeConfirm(b); });
+// changing how many portions a logged item was: scale its calories and macros with it
+document.addEventListener('change', ev => {
+  const inp = ev.target.closest && ev.target.closest('.pq input'); if (!inp) return;
+  const e = S.intake.find(x => x.uid === inp.dataset.u); if (!e) return;
+  const nv = Math.round(Math.min(20, Math.max(0.1, parseFloat(String(inp.value).replace(',', '.')) || 0)) * 10) / 10;
+  const ov = +e.portion || 1; if (!nv || nv === ov) { inp.value = ov; return; }
+  const f = nv / ov; e.portion = nv;
+  for (const k of ['kcal', 'P', 'C', 'F']) if (e[k] != null) e[k] = Math.round(e[k] * f * (k === 'kcal' ? 1 : 10)) / (k === 'kcal' ? 1 : 10);
+  save('intake', S.intake); Sync.op('intake_upsert', e); render();
+});
 // typing a restaurant name: Google Places suggestions under the box (server-side key; quiet if not set up)
 const PLS = { timer: 0, session: '', loc: null, asked: false, off: false };
 function plsLoc() {
@@ -2675,15 +2686,24 @@ Sync.init();
 
 </script>
 <script>
-// opening animation: a pre-rendered video embedded in the page (no download), started only after the app has
-// finished its first render so the phone isn't busy while it plays; played once, then the app
+// opening animation: a pre-rendered video embedded in the page (no download), started after the app's first render.
+// It stays up until the hop is done AND the app has its data, then the finished screen fades in (no "Loading…" page in between).
 (function () {
   const el = document.getElementById('splash'), v = document.getElementById('splashv'); if (!el) return;
-  let gone = false, started = false;
-  const done = () => { if (gone) return; gone = true; document.documentElement.classList.remove('splashing'); const m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', '#F4F4F2'); el.classList.add('out'); setTimeout(() => el.remove(), 380); };
-  const go = () => { if (started) return; started = true; const p = v.play(); if (p && p.catch) p.catch(() => setTimeout(done, 700)); setTimeout(done, 3900); };
-  if (!v) { setTimeout(done, 600); return; }
-  v.addEventListener('ended', done); v.addEventListener('error', () => setTimeout(done, 300));
+  const t0 = performance.now();
+  let gone = false, started = false, ended = false;
+  const ready = () => !(typeof Sync !== 'undefined' && Sync.enabled && Sync.st.stage === 'loading');
+  const done = () => {
+    if (gone) return; gone = true; clearInterval(iv);
+    if (typeof render === 'function') render();
+    document.documentElement.classList.remove('splashing');
+    const m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', '#F4F4F2');
+    el.classList.add('out'); setTimeout(() => el.remove(), 500);
+  };
+  const iv = setInterval(() => { const t = performance.now() - t0; if ((ended || t > 3900) && ready()) done(); else if (t > 9000) done(); }, 80);
+  const go = () => { if (started) return; started = true; const p = v.play(); if (p && p.catch) p.catch(() => { ended = true; }); };
+  if (!v) { ended = true; return; }
+  v.addEventListener('ended', () => { ended = true; }); v.addEventListener('error', () => { ended = true; });
   requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(go, 60)));
   setTimeout(go, 900);
 })();
