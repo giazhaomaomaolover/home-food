@@ -32,8 +32,9 @@ main { flex: 1; padding: 0 18px 28px; display: flex; flex-direction: column; gap
 .eyebrow { font-size: 11px; line-height: 1.4; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; color: var(--spice); }
 .muted { color: var(--muted); font-size: 14px; }
 .masthead { display: flex; align-items: center; gap: 12px; padding: 18px 18px 14px; border-bottom: 1px solid var(--line); }
-.splash { position: fixed; inset: 0; z-index: 200; background: #F4F4F2; display: flex; align-items: center; justify-content: center; transition: opacity .4s ease; }
+.splash { position: fixed; inset: 0; z-index: 200; background: #F4F4F2; display: flex; align-items: center; justify-content: center; transition: opacity .35s ease; }
 .splash.out { opacity: 0; pointer-events: none; }
+.splash video { width: 150px; height: 150px; }
 .seal.mark { background: none; width: 42px; height: 42px; }
 .seal { display: grid; place-items: center; width: 42px; height: 42px; background: var(--spice); color: var(--ivory); border-radius: 8px; font: 800 16px/1 var(--sans); letter-spacing: -.08em; }
 .brand { font: 700 24px/1 var(--serif); letter-spacing: -.04em; }
@@ -512,18 +513,7 @@ html[lang="en"] .card-title, html[lang="en"] .intro h1 { letter-spacing: -.01em;
 <script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));</script>
 </head>
 <body>
-<div class="splash" id="splash" aria-hidden="true"><svg width="150" height="150" viewBox="0 -14 100 114" role="img" aria-label="Animated HomeState mark with squat"><defs><filter id="hfsp" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
-<feGaussianBlur in="SourceGraphic" stdDeviation="4.6" result="b"/>
-<feColorMatrix in="b" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 20 -8.6" result="a"/>
-<feGaussianBlur in="a" stdDeviation="7" result="h"/>
-<feDiffuseLighting in="h" surfaceScale="5" diffuseConstant="1.05" lighting-color="#fff" result="d"><feDistantLight azimuth="235" elevation="55"/></feDiffuseLighting>
-<feSpecularLighting in="h" surfaceScale="5" specularConstant="0.035" specularExponent="7" lighting-color="#fff" result="s"><feDistantLight azimuth="235" elevation="60"/></feSpecularLighting>
-<feFlood flood-color="#151514" result="f"/>
-<feComposite in="f" in2="d" operator="arithmetic" k1="0" k2="1" k3="0.06" k4="-0.03" result="c"/>
-<feComposite in="c" in2="s" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="cs"/>
-<feComposite in="cs" in2="a" operator="in" result="o"/>
-<feDropShadow dx="1.2" dy="3.2" stdDeviation="3.2" flood-color="#000" flood-opacity="0.16"/>
-</filter></defs><g filter="url(#hfsp)" fill="#000"><rect x="13" y="40" width="28" height="52" rx="14.0"><animate attributeName="y" values="40.00;40.83;42.48;34.00;25.00;40.00;42.20;37.50;40.55;40.00;40.00" keyTimes="0;0.06;0.18;0.27;0.4;0.56;0.61;0.67;0.72;0.77;1" calcMode="spline" keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.15 0.6 0.35 1;0.15 0.6 0.35 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0.4 0 0.2 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0 0 1 1" dur="2.0s" repeatCount="indefinite"/><animate attributeName="height" values="52.00;51.17;49.52;52.00;52.00;52.00;49.80;52.00;51.45;52.00;52.00" keyTimes="0;0.06;0.18;0.27;0.4;0.56;0.61;0.67;0.72;0.77;1" calcMode="spline" keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.15 0.6 0.35 1;0.15 0.6 0.35 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0.4 0 0.2 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0 0 1 1" dur="2.0s" repeatCount="indefinite"/></rect><ellipse cx="27.0" cy="87" rx="0" ry="0"><animate attributeName="cy" values="87.00;87.00;87.00;81.00;72.00;87.00;87.00;84.50;87.00;87.00;87.00" keyTimes="0;0.06;0.18;0.27;0.4;0.56;0.61;0.67;0.72;0.77;1" calcMode="spline" keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.15 0.6 0.35 1;0.15 0.6 0.35 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0.4 0 0.2 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0 0 1 1" dur="2.0s" repeatCount="indefinite"/><animate attributeName="rx" values="0.00;13.37;15.49;0.00;0.00;0.00;15.32;0.00;8.76;0.00;0.00" keyTimes="0;0.06;0.18;0.27;0.4;0.56;0.61;0.67;0.72;0.77;1" calcMode="spline" keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.15 0.6 0.35 1;0.15 0.6 0.35 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0.4 0 0.2 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0 0 1 1" dur="2.0s" repeatCount="indefinite"/><animate attributeName="ry" values="0.00;1.33;3.97;0.00;0.00;0.00;3.52;0.00;0.88;0.00;0.00" keyTimes="0;0.06;0.18;0.27;0.4;0.56;0.61;0.67;0.72;0.77;1" calcMode="spline" keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.15 0.6 0.35 1;0.15 0.6 0.35 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0.4 0 0.2 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0 0 1 1" dur="2.0s" repeatCount="indefinite"/></ellipse><rect x="59" y="16" width="28" height="52" rx="14.0"><animate attributeName="y" values="16.00;19.03;8.00;-7.00;16.00;18.48;13.00;16.66;16.00;16.00" keyTimes="0;0.12;0.2;0.34;0.5;0.55;0.61;0.66;0.71;1" calcMode="spline" keySplines="0.4 0 0.2 1;0.15 0.6 0.35 1;0.15 0.6 0.35 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0.4 0 0.2 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0 0 1 1" dur="2.0s" repeatCount="indefinite"/><animate attributeName="height" values="52.00;48.97;52.00;52.00;52.00;49.52;52.00;51.34;52.00;52.00" keyTimes="0;0.12;0.2;0.34;0.5;0.55;0.61;0.66;0.71;1" calcMode="spline" keySplines="0.4 0 0.2 1;0.15 0.6 0.35 1;0.15 0.6 0.35 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0.4 0 0.2 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0 0 1 1" dur="2.0s" repeatCount="indefinite"/></rect><ellipse cx="73.0" cy="63" rx="0" ry="0"><animate attributeName="cy" values="63.00;63.00;55.00;40.00;63.00;63.00;60.00;63.00;63.00;63.00" keyTimes="0;0.12;0.2;0.34;0.5;0.55;0.61;0.66;0.71;1" calcMode="spline" keySplines="0.4 0 0.2 1;0.15 0.6 0.35 1;0.15 0.6 0.35 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0.4 0 0.2 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0 0 1 1" dur="2.0s" repeatCount="indefinite"/><animate attributeName="rx" values="0.00;15.82;0.00;0.00;0.00;15.49;0.00;10.56;0.00;0.00" keyTimes="0;0.12;0.2;0.34;0.5;0.55;0.61;0.66;0.71;1" calcMode="spline" keySplines="0.4 0 0.2 1;0.15 0.6 0.35 1;0.15 0.6 0.35 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0.4 0 0.2 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0 0 1 1" dur="2.0s" repeatCount="indefinite"/><animate attributeName="ry" values="0.00;4.00;0.00;0.00;0.00;3.97;0.00;1.06;0.00;0.00" keyTimes="0;0.12;0.2;0.34;0.5;0.55;0.61;0.66;0.71;1" calcMode="spline" keySplines="0.4 0 0.2 1;0.15 0.6 0.35 1;0.15 0.6 0.35 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0.4 0 0.2 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0 0 1 1" dur="2.0s" repeatCount="indefinite"/></ellipse><line x1="36" y1="62" x2="64" y2="48" stroke="#000" stroke-width="8.5" stroke-linecap="round"><animate attributeName="y1" values="62.00;62.41;63.24;56.00;47.00;62.00;63.10;59.50;62.28;62.00;62.00" keyTimes="0;0.06;0.18;0.27;0.4;0.56;0.61;0.67;0.72;0.77;1" calcMode="spline" keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.15 0.6 0.35 1;0.15 0.6 0.35 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0.4 0 0.2 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0 0 1 1" dur="2.0s" repeatCount="indefinite"/><animate attributeName="y2" values="48.00;49.52;40.00;25.00;48.00;49.24;45.00;48.33;48.00;48.00" keyTimes="0;0.12;0.2;0.34;0.5;0.55;0.61;0.66;0.71;1" calcMode="spline" keySplines="0.4 0 0.2 1;0.15 0.6 0.35 1;0.15 0.6 0.35 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0.4 0 0.2 1;0.55 0 0.85 0.45;0.4 0 0.2 1;0 0 1 1" dur="2.0s" repeatCount="indefinite"/></line></g></svg></div>
+<div class="splash" id="splash" aria-hidden="true"><video id="splashv" src="brand/hop.mp4" poster="brand/hop-poster.jpg" width="150" height="150" muted playsinline autoplay preload="auto"></video></div>
 <div class="app" id="app"></div>
 <script>
 
@@ -2682,13 +2672,13 @@ Sync.init();
 
 </script>
 <script>
-// opening animation: one full hop at least, then fade out once the app has its data (or the sign-in screen)
+// opening animation: a pre-rendered video (smooth on every phone), played once, then the app
 (function () {
-  const el = document.getElementById('splash'); if (!el) return;
-  const t0 = performance.now(), MIN = 1650;
-  const done = () => { clearInterval(iv); el.classList.add('out'); setTimeout(() => el.remove(), 420); };
-  const iv = setInterval(() => { const ready = !(Sync.enabled && Sync.st.stage === 'loading'); if (ready && performance.now() - t0 > MIN) done(); }, 60);
-  setTimeout(done, 7000);
+  const el = document.getElementById('splash'), v = document.getElementById('splashv'); if (!el) return;
+  let gone = false;
+  const done = () => { if (gone) return; gone = true; el.classList.add('out'); setTimeout(() => el.remove(), 380); };
+  if (v) { v.addEventListener('ended', done); v.addEventListener('error', () => setTimeout(done, 300)); const p = v.play(); if (p && p.catch) p.catch(() => setTimeout(done, 900)); }
+  setTimeout(done, 2300);
 })();
 </script>
 </body>
