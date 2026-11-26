@@ -1,6 +1,6 @@
 {
- "name": "Home Food",
- "short_name": "Home Food",
+ "name": "HomeState",
+ "short_name": "HomeState",
  "start_url": "./",
  "scope": "./",
  "display": "standalone",

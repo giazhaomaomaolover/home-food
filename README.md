@@ -1,4 +1,4 @@
-# Home Food
+# HomeState
 
 Our private cooking app: 81 recipes, a shared weekly plan, and a shopping list that adds itself up.
 Open it on your phone and use "Add to Home Screen". Sign in with your email (a 6-digit code, no password).
